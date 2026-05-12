@@ -43,21 +43,43 @@
   #bossBar{height:8px;background:#1a0030;border-radius:4px;overflow:hidden;border:1px solid rgba(255,255,255,.2);margin-top:3px}
   #bossBarFill{height:100%;width:100%;background:linear-gradient(90deg,#ffd23a,#ff2bd6,#9b3bff);box-shadow:0 0 12px var(--magenta);transition:width .25s}
 
-  #hudBottom{padding:0 12px calc(10px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;pointer-events:none}
-  #starshield{width:min(56vw,260px);height:46px;border:2px solid var(--cyan);border-radius:10px;background:linear-gradient(180deg,rgba(0,20,40,.85),rgba(0,10,30,.6));padding:5px 8px;box-shadow:0 0 12px rgba(34,240,255,.35),inset 0 0 18px rgba(34,240,255,.12);pointer-events:auto}
-  #starshield .ssLbl{font-size:9px;color:var(--cyan);letter-spacing:.22em}
-  #ssBar{position:relative;height:8px;background:#02101c;border-radius:4px;overflow:hidden;margin-top:3px;border:1px solid rgba(34,240,255,.4)}
+  #hudBottom{padding:0 10px calc(10px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:6px;pointer-events:none}
+  #weaponInd{margin:0 auto;font-size:11px;color:var(--yellow);letter-spacing:.22em;text-shadow:0 0 10px var(--yellow);background:rgba(0,0,0,.55);padding:4px 12px;border:1px solid var(--yellow);border-radius:14px;pointer-events:none;display:inline-block;align-self:center;white-space:nowrap;text-align:center}
+  #starshield{width:100%;max-width:520px;margin:0 auto;height:42px;border:2px solid var(--cyan);border-radius:10px;background:linear-gradient(180deg,rgba(0,20,40,.85),rgba(0,10,30,.6));padding:4px 10px;box-shadow:0 0 12px rgba(34,240,255,.35),inset 0 0 18px rgba(34,240,255,.12);pointer-events:auto}
+  #starshield .ssLbl{font-size:9px;color:var(--cyan);letter-spacing:.22em;text-align:center}
+  #ssBar{position:relative;height:10px;background:#02101c;border-radius:4px;overflow:hidden;margin-top:3px;border:1px solid rgba(34,240,255,.4)}
   #ssFill{height:100%;width:0%;background:linear-gradient(90deg,var(--cyan),#7dff4d,var(--cyan));box-shadow:0 0 12px var(--cyan);transition:width .15s}
-  #ssDoom{position:relative;height:6px;background:#1a0020;border-radius:3px;overflow:hidden;margin-top:3px;border:1px solid rgba(255,43,214,.5)}
-  #ssDoomFill{height:100%;width:0%;background:linear-gradient(90deg,var(--magenta),var(--yellow),var(--magenta));box-shadow:0 0 10px var(--magenta)}
   #ssLabels{display:flex;justify-content:space-between;font-size:8px;color:#9aa;letter-spacing:.18em;margin-top:2px}
 
-  #yeetBtn{pointer-events:auto;width:96px;height:96px;border-radius:50%;border:3px solid var(--green);background:radial-gradient(circle at 30% 30%,#1a0030,#0a0014 70%);color:var(--green);font-family:inherit;font-weight:900;font-size:11px;letter-spacing:.14em;text-shadow:0 0 8px var(--green);box-shadow:0 0 24px rgba(125,255,77,.5),inset 0 0 18px rgba(125,255,77,.25);position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.1;padding:8px}
-  #yeetBtn:disabled{opacity:.4;border-color:#666;color:#888;text-shadow:none;box-shadow:none}
-  #yeetBtn .yIcon{font-size:22px;display:block;margin-bottom:2px;text-shadow:0 0 10px var(--green)}
+  #bottomBtns{display:flex;justify-content:space-between;align-items:center;width:100%;gap:8px}
+  .actionBtn{pointer-events:auto;width:84px;height:84px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#1a0030,#0a0014 70%);font-family:inherit;font-weight:900;font-size:10px;letter-spacing:.14em;position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.1;padding:6px;flex:0 0 auto}
+  .actionBtn .icon{font-size:20px;display:block;margin-bottom:2px}
+  .actionBtn:disabled{opacity:.55;cursor:default}
+  .actionBtn .cd{position:absolute;inset:0;border-radius:50%;background:conic-gradient(rgba(0,0,0,.55) 0deg,rgba(0,0,0,.55) 360deg);pointer-events:none}
+  .actionBtn .timer{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:10px;letter-spacing:.18em;color:#fff;text-shadow:0 0 6px #000;background:rgba(0,0,0,.6);padding:1px 6px;border-radius:6px;display:none}
+  .actionBtn.active .timer{display:block}
+
+  #yeetBtn{border:3px solid var(--green);color:var(--green);text-shadow:0 0 8px var(--green);box-shadow:0 0 18px rgba(125,255,77,.35),inset 0 0 14px rgba(125,255,77,.2)}
+  #yeetBtn .icon{text-shadow:0 0 10px var(--green)}
+  #yeetBtn:disabled{border-color:#3a4a3a;color:#7a8a7a;text-shadow:none;box-shadow:0 0 6px rgba(125,255,77,.15)}
   #yeetBtn.ready{animation:yeetPulse 1.4s infinite}
   @keyframes yeetPulse{0%,100%{box-shadow:0 0 24px rgba(125,255,77,.5),inset 0 0 18px rgba(125,255,77,.25)}50%{box-shadow:0 0 40px rgba(125,255,77,.95),inset 0 0 26px rgba(125,255,77,.5)}}
-  #yeetCd{position:absolute;inset:0;border-radius:50%;background:conic-gradient(rgba(0,0,0,.6) 0deg,rgba(0,0,0,.6) 360deg);pointer-events:none}
+
+  #doomBtn{border:3px solid var(--magenta);color:var(--magenta);text-shadow:0 0 8px var(--magenta);box-shadow:0 0 18px rgba(255,43,214,.35),inset 0 0 14px rgba(255,43,214,.2)}
+  #doomBtn .icon{text-shadow:0 0 10px var(--magenta)}
+  #doomBtn:disabled{border-color:#4a2a4a;color:#8a7a8a;text-shadow:none;box-shadow:0 0 6px rgba(255,43,214,.15)}
+  #doomBtn.ready{animation:doomPulse 1.2s infinite}
+  @keyframes doomPulse{0%,100%{box-shadow:0 0 24px rgba(255,43,214,.55),inset 0 0 18px rgba(255,43,214,.3)}50%{box-shadow:0 0 44px rgba(34,240,255,.95),inset 0 0 26px rgba(255,43,214,.6)}}
+  #doomBtn.active{border-color:var(--yellow);color:var(--yellow);text-shadow:0 0 10px var(--yellow);box-shadow:0 0 30px rgba(255,210,58,.85),inset 0 0 18px rgba(255,210,58,.4)}
+  #doomBtn.active .icon{text-shadow:0 0 12px var(--yellow)}
+
+  /* Smaller screens (≤380w): shrink action buttons & starshield label */
+  @media (max-width:380px){
+    .actionBtn{width:76px;height:76px;font-size:9px}
+    .actionBtn .icon{font-size:18px}
+    #starshield{height:40px}
+  }
+  /* Very tall iPhones get a bit more room — already covered by flex */
 
   /* Doom Squadron portrait bubbles */
   #doomActive{position:fixed;top:30%;left:0;right:0;display:none;justify-content:space-between;padding:0 8px;z-index:4;pointer-events:none}
@@ -115,8 +137,7 @@
   #toast{position:fixed;left:50%;top:24%;transform:translate(-50%,-50%);z-index:9;font-size:14px;color:#fff;text-shadow:0 0 10px var(--cyan),0 0 14px var(--magenta);letter-spacing:.22em;text-align:center;opacity:0;transition:opacity .2s;pointer-events:none}
   #toast.show{opacity:1}
 
-  /* Weapon indicator */
-  #weaponInd{position:fixed;left:8px;top:calc(82px + env(safe-area-inset-top,0px));z-index:4;font-size:10px;color:var(--yellow);letter-spacing:.18em;text-shadow:0 0 8px var(--yellow);background:rgba(0,0,0,.5);padding:3px 8px;border:1px solid var(--yellow);border-radius:4px;pointer-events:none}
+  /* Weapon indicator now lives inside #hudBottom — see above */
 </style>
 </head>
 <body>
@@ -146,28 +167,27 @@
   </div>
   <div id="hudCenter"></div>
   <div id="hudBottom">
+    <div id="weaponInd">PEW CANNON</div>
     <div id="starshield">
       <div class="ssLbl">STARSHIELD</div>
       <div id="ssBar"><div id="ssFill"></div></div>
-      <div id="ssDoom"><div id="ssDoomFill"></div></div>
-      <div id="ssLabels"><span>SHIELD</span><span>DOOM SQUAD</span></div>
+      <div id="ssLabels"><span>DOUBLE-TAP TO DEPLOY</span><span id="ssPct">0%</span></div>
     </div>
-    <button id="yeetBtn" disabled>
-      <span><span class="yIcon">🪐</span>PLANETARY<br>YEET</span>
-      <div id="yeetCd"></div>
-    </button>
+    <div id="bottomBtns">
+      <button id="doomBtn" class="actionBtn" disabled>
+        <span><span class="icon">🚀</span>DOOM<br>SQUAD</span>
+        <div class="cd" id="doomCd"></div>
+        <div class="timer" id="doomTimer">30</div>
+      </button>
+      <button id="yeetBtn" class="actionBtn" disabled>
+        <span><span class="icon">🪐</span>PLANETARY<br>YEET</span>
+        <div class="cd" id="yeetCd"></div>
+      </button>
+    </div>
   </div>
 </div>
 
-<div id="weaponInd">PEW CANNON</div>
 <div id="toast"></div>
-
-<!-- Doom Squadron portraits when active -->
-<div id="doomActive">
-  <div class="doomBubble hank"><div class="nm">HANK</div></div>
-  <div class="doomBubble tank"><div class="nm">TANK</div></div>
-</div>
-<div id="doomTimer">30</div>
 
 <!-- Title screen -->
 <div id="title">
@@ -216,7 +236,7 @@
 
 <audio id="bgm" loop preload="auto"></audio>
 <audio id="bossBgm" loop preload="auto"></audio>
-<audio id="sfx" preload="auto"></audio>
+<audio id="doomBgm" loop preload="auto"></audio>
 
 <script>
 /* ===========================================================
@@ -242,9 +262,12 @@ const bossBarWrap=document.getElementById('bossBarWrap');
 const bossBarFill=document.getElementById('bossBarFill');
 const bossNameEl=document.getElementById('bossName');
 const ssFill=document.getElementById('ssFill');
-const ssDoomFill=document.getElementById('ssDoomFill');
+const ssPct=document.getElementById('ssPct');
 const yeetBtn=document.getElementById('yeetBtn');
 const yeetCd=document.getElementById('yeetCd');
+const doomBtn=document.getElementById('doomBtn');
+const doomCd=document.getElementById('doomCd');
+const doomTimerEl=document.getElementById('doomTimer');
 const weaponInd=document.getElementById('weaponInd');
 const toast=document.getElementById('toast');
 const comicEl=document.getElementById('comic');
@@ -262,10 +285,9 @@ const goWave=document.getElementById('goWave');
 const goKills=document.getElementById('goKills');
 const goRetry=document.getElementById('goRetry');
 const soundToggle=document.getElementById('soundToggle');
-const doomActiveEl=document.getElementById('doomActive');
-const doomTimerEl=document.getElementById('doomTimer');
 const bgm=document.getElementById('bgm');
 const bossBgm=document.getElementById('bossBgm');
+const doomBgm=document.getElementById('doomBgm');
 
 // ---------- Constants ----------
 const TAU=Math.PI*2;
@@ -301,23 +323,25 @@ const Audio={
   tracks:{
     main:'assets/audio/Starshield_Loop.mp3',
     boss:'assets/audio/Boss_Theme.mp3',
+    doom:'assets/audio/Doom_Squadron.mp3',
     title:'assets/audio/Title_Theme.mp3',
     clear:'assets/audio/Wave_Clear.mp3',
     over:'assets/audio/Game_Over.mp3'
   },
   current:null,
+  preDoom:null, // restore this track when Doom Squadron ends
   muted:false,
   unlocked:false,
   vol:.5,
+  _elFor(name){return name==='boss'?bossBgm:name==='doom'?doomBgm:bgm},
   async play(name){
     const src=this.tracks[name];
     if(!src) return;
-    // Pick element: bossBgm for boss, bgm for everything else
-    const el=(name==='boss')?bossBgm:bgm;
-    const other=(name==='boss')?bgm:bossBgm;
+    const el=this._elFor(name);
+    const elements=[bgm,bossBgm,doomBgm];
     if(this.current===name && !el.paused) return;
     try{
-      other.pause();
+      for(const o of elements){if(o!==el)o.pause()}
       el.src=src;
       el.volume=this.muted?0:this.vol;
       el.muted=this.muted;
@@ -329,13 +353,12 @@ const Audio={
       console.warn('Audio play failed for',name,e.message);
     }
   },
-  stop(){bgm.pause();bossBgm.pause();this.current=null},
+  startDoom(){this.preDoom=this.current||'main';this.play('doom')},
+  endDoom(){const t=this.preDoom||'main';this.preDoom=null;this.play(t)},
+  stop(){bgm.pause();bossBgm.pause();doomBgm.pause();this.current=null},
   toggleMute(){
     this.muted=!this.muted;
-    bgm.muted=this.muted;
-    bossBgm.muted=this.muted;
-    bgm.volume=this.muted?0:this.vol;
-    bossBgm.volume=this.muted?0:this.vol;
+    [bgm,bossBgm,doomBgm].forEach(el=>{el.muted=this.muted;el.volume=this.muted?0:this.vol});
     soundToggle.textContent=this.muted?'🔇':'🔊';
   },
   // Tiny SFX synth via WebAudio (no sample files needed)
@@ -396,11 +419,13 @@ const G={
   player:null,bullets:[],enemies:[],parts:[],fxs:[],
   shieldCharge:0, // 0-100, double-tap to spend
   shieldActive:0, // seconds remaining when active
-  doomCharge:0, // 0-100
-  doomActive:0, // seconds remaining
-  yeetCd:0, yeetMax:22, yeetReady:true,
+  doomCharge:0,   // 0-100, fast to fill (firepower boost)
+  doomActive:0,   // seconds remaining
+  yeetCharge:0,   // 0-100, slow to fill (screen clear)
+  yeetReady:false,
+  invuln:0,       // post-hit invulnerability seconds
   weapon:'pew', weaponLv:1,
-  boss:null, bossHP:0, bossMax:1, bossPhase:1, bossTriggered:new Set(),
+  boss:null, bossPhase:1,
   waveDef:null, waveProgress:0,
   isEndless:false, character:'moore',
   starOff:0, starOff2:0
@@ -716,18 +741,28 @@ function update(dt){
   G.shieldActive=Math.max(0,G.shieldActive-dt);
   G.shake=Math.max(0,G.shake-dt*22);
   G.multiTimer=Math.max(0,G.multiTimer-dt);
+  G.invuln=Math.max(0,G.invuln-dt);
   if(G.multiTimer<=0 && G.multi>1){G.multi=Math.max(1,G.multi-dt*.5)}
+  // Doom Squadron duration
+  const wasActive=G.doomActive>0;
   G.doomActive=Math.max(0,G.doomActive-dt);
-  if(G.doomActive<=0 && doomActiveEl.style.display==='flex'){
-    doomActiveEl.style.display='none';doomTimerEl.style.display='none';
-  }else if(G.doomActive>0){
+  if(wasActive && G.doomActive<=0){
+    doomBtn.classList.remove('active');
+    Audio.endDoom();
+    toastMsg('DOOM SQUADRON OFFLINE',1100);
+  }
+  if(G.doomActive>0){
     doomTimerEl.textContent=Math.ceil(G.doomActive);
   }
-  if(G.yeetCd>0){
-    G.yeetCd=Math.max(0,G.yeetCd-dt);
-    yeetCd.style.background=`conic-gradient(rgba(0,0,0,.6) ${(G.yeetCd/G.yeetMax)*360}deg,transparent 0)`;
-    if(G.yeetCd<=0 && !G.yeetReady){G.yeetReady=true;yeetBtn.disabled=false;yeetBtn.classList.add('ready')}
-  }
+  // Yeet button visual (charge-based)
+  yeetCd.style.background=`conic-gradient(rgba(0,0,0,.55) ${(1-G.yeetCharge/100)*360}deg,transparent 0)`;
+  if(G.yeetCharge>=100 && !G.yeetReady){G.yeetReady=true;yeetBtn.disabled=false;yeetBtn.classList.add('ready')}
+  else if(G.yeetCharge<100 && G.yeetReady){G.yeetReady=false;yeetBtn.disabled=true;yeetBtn.classList.remove('ready')}
+  // Doom button visual
+  doomCd.style.background=`conic-gradient(rgba(0,0,0,.55) ${(1-G.doomCharge/100)*360}deg,transparent 0)`;
+  const doomReady=G.doomCharge>=100 && G.doomActive<=0;
+  doomBtn.disabled=!doomReady;
+  if(doomReady){doomBtn.classList.add('ready')}else{doomBtn.classList.remove('ready')}
 
   // Player movement
   const p=G.player;if(!p)return;
@@ -853,13 +888,38 @@ function update(dt){
     if(e.x>W-24){e.x=W-24;e.vx=-Math.abs(e.vx)}
   });
 
-  // Bullet vs player
+  // Bullet vs player → costs a life (with invuln window)
   if(state!==STATE.OVER){
     for(let i=G.bullets.length-1;i>=0;i--){
       const b=G.bullets[i];if(b.friend)continue;
       if(d2(b,p)<(b.r+p.r)**2){
         G.bullets.splice(i,1);
-        damagePlayer(b.dmg*4);
+        loseLife();
+        if(G.lives<=0)break;
+      }
+    }
+  }
+  // Enemy collision with player → costs a life AND destroys the enemy
+  if(state!==STATE.OVER && G.invuln<=0){
+    for(let i=G.enemies.length-1;i>=0;i--){
+      const e=G.enemies[i];if(e.type==='power')continue;
+      if(d2(e,p)<(e.r+p.r)**2){
+        burst(e.x,e.y,e.color,20,220);
+        Audio.sExplode();
+        G.enemies.splice(i,1);
+        loseLife();
+        if(G.lives<=0)break;
+      }
+    }
+    // Boss body slam: heavy boss damage + life cost, boss survives
+    if(G.boss && G.invuln<=0){
+      if(d2(G.boss,p)<(G.boss.r*.85+p.r)**2){
+        const slamDmg=Math.max(8,Math.floor(G.boss.maxHp*.04));
+        G.boss.hp-=slamDmg;
+        flash(G.boss.x,G.boss.y,G.boss.r+10,'#ff3a5c');
+        bossBarFill.style.width=Math.max(0,G.boss.hp/G.boss.maxHp*100)+'%';
+        loseLife();
+        if(G.boss && G.boss.hp<=0){endBoss();stinger('WAVE CLEAR',()=>nextWave(),1200)}
       }
     }
   }
@@ -912,6 +972,9 @@ function update(dt){
         G.bullets.splice(j,1);
         burst(b.x,b.y,G.boss.color,4,70);
         Audio.sHit();
+        // Boss damage contributes to Yeet charge (tougher enemies hint)
+        G.yeetCharge=Math.min(100,G.yeetCharge+dmg*.35);
+        G.doomCharge=Math.min(100,G.doomCharge+dmg*.4);
         bossBarFill.style.width=Math.max(0,G.boss.hp/G.boss.maxHp*100)+'%';
         // phase triggers
         for(const ph of G.boss.phases){
@@ -1031,10 +1094,14 @@ function killEnemy(e,i){
   G.kills++;
   G.multi=Math.min(8, G.multi+.15);
   G.multiTimer=3.2;
-  // doom meter charges from kills
-  G.doomCharge=Math.min(100,G.doomCharge+(e.dmg>=14?3.5:2));
-  // shield meter charges from kills
-  G.shieldCharge=Math.min(100,G.shieldCharge+(e.dmg>=14?2.2:1.4));
+  const tough=e.dmg>=14;
+  // Doom Squadron — fast charge (firepower boost)
+  G.doomCharge=Math.min(100,G.doomCharge+(tough?4:2.6));
+  // Planetary Yeet — slow charge (screen clear); tougher enemies + combo help
+  const comboBonus=Math.min(.6,(G.multi-1)*.15);
+  G.yeetCharge=Math.min(100,G.yeetCharge+(tough?1.4:.7)+comboBonus);
+  // Starshield — moderate charge
+  G.shieldCharge=Math.min(100,G.shieldCharge+(tough?2.2:1.4));
   // explosion variations
   if(e.type==='steroid'){
     // explodes, releases pink plasma bullets in 6 directions
@@ -1062,34 +1129,42 @@ function killEnemy(e,i){
   G.enemies.splice(i,1);
 }
 
+// Earth damage NEVER removes lives — earth-only path
 function damageEarth(dmg){
+  if(dmg<=0)return;
   G.earth-=dmg;
   G.multi=1;G.multiTimer=0;
-  G.shake=Math.max(G.shake,10);
+  G.shake=Math.max(G.shake,8);
   if(G.earth<=0){
     G.earth=0;
-    G.lives--;
-    if(G.lives<=0){
-      gameOver();
-    }else{
-      // reset earth, give brief invulnerability via shield
-      G.earth=100;
-      G.shieldActive=4;
-      toastMsg('LIFE LOST · '+G.lives+' LEFT');
-    }
+    gameOver();
   }
 }
-function damagePlayer(dmg){
+// Player hits cost a LIFE, not Earth. Invulnerability blocks repeat hits.
+function loseLife(){
+  if(G.invuln>0)return; // protected window
+  // Starshield active = absorb the hit without spending a life
   if(G.shieldActive>0){
-    G.earth-=dmg*.25;G.shake=Math.max(G.shake,5);
-    burst(G.player.x,G.player.y,'#22f0ff',12,140);
-  }else{
-    G.earth-=dmg;G.shake=Math.max(G.shake,12);
-    burst(G.player.x,G.player.y,'#ff3a5c',16,180);
-    G.multi=1;G.multiTimer=0;
+    G.shieldActive=Math.max(0,G.shieldActive-2);
+    G.shake=Math.max(G.shake,6);
+    burst(G.player.x,G.player.y,'#22f0ff',14,150);
+    Audio.sShield();
+    return;
   }
-  if(G.earth<=0)damageEarth(0);
+  G.lives--;
+  G.invuln=1.5;
+  G.shake=Math.max(G.shake,14);
+  G.multi=1;G.multiTimer=0;
+  burst(G.player.x,G.player.y,'#ff3a5c',26,260,1.1);
+  flash(G.player.x,G.player.y,42,'#ff3a5c');
+  Audio.sExplode();
+  toastMsg('SHIP HIT! · '+Math.max(0,G.lives)+' LEFT',1200);
+  if(G.lives<=0){
+    gameOver();
+  }
 }
+// Back-compat helper if any path still calls damagePlayer
+function damagePlayer(){loseLife()}
 
 // ---------- Shooting / Weapons ----------
 function shoot(){
@@ -1144,19 +1219,59 @@ function shoot(){
     Audio.sQuake();
   }else{cd=.14}
 
-  // Doom Squadron cover fire: side bullets
+  // Doom Squadron wingmen flank the player and fire in sync
   if(doom){
-    G.bullets.push({x:8,y:H*.55,vx:0,vy:-520,r:3,friend:true,dmg:1,trail:'#ff2bd6'});
-    G.bullets.push({x:W-8,y:H*.55,vx:0,vy:-520,r:3,friend:true,dmg:1,trail:'#22f0ff'});
+    const wx=44;
+    G.bullets.push({x:p.x-wx,y:p.y-8,vx:0,vy:-680,r:4,friend:true,dmg:1,trail:'#ff2bd6'});
+    G.bullets.push({x:p.x+wx,y:p.y-8,vx:0,vy:-680,r:4,friend:true,dmg:1,trail:'#22f0ff'});
   }
   G.fireCd=cd;
 }
 
+// Render Hank (left, magenta) + Tank (right, cyan) wingmen during Doom Squadron
+function drawWingmen(){
+  if(G.doomActive<=0||!G.player)return;
+  const p=G.player;
+  const t=G.time;
+  // Hank — left
+  drawWing(p.x-44+Math.sin(t*4)*2,p.y+2+Math.sin(t*5)*1.5,'#ff2bd6','#9b3bff','H');
+  // Tank — right
+  drawWing(p.x+44+Math.cos(t*4)*2,p.y+2+Math.cos(t*5)*1.5,'#22f0ff','#1a6080','T');
+}
+function drawWing(x,y,c1,c2,initial){
+  ctx.save();ctx.translate(x,y);
+  // engine flame
+  ctx.beginPath();
+  ctx.moveTo(-6,11);ctx.lineTo(0,22+Math.sin(G.time*40)*3);ctx.lineTo(6,11);
+  ctx.fillStyle=c1;ctx.globalAlpha=.8;ctx.fill();ctx.globalAlpha=1;
+  // body
+  ctx.beginPath();
+  ctx.moveTo(0,-18);
+  ctx.lineTo(13,13);
+  ctx.lineTo(5,7);
+  ctx.lineTo(0,12);
+  ctx.lineTo(-5,7);
+  ctx.lineTo(-13,13);
+  ctx.closePath();
+  const g=ctx.createLinearGradient(0,-18,0,16);
+  g.addColorStop(0,'#fff');g.addColorStop(.55,c1);g.addColorStop(1,c2);
+  ctx.fillStyle=g;ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.9)';ctx.lineWidth=1.2;ctx.stroke();
+  // cockpit
+  ctx.beginPath();ctx.ellipse(0,-5,3.2,6,0,0,TAU);ctx.fillStyle='#0a0014';ctx.fill();
+  ctx.strokeStyle=c1;ctx.lineWidth=1.2;ctx.stroke();
+  // initial badge
+  ctx.fillStyle='#fff';ctx.font='bold 8px Impact';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(initial,0,5);
+  ctx.restore();
+}
+
 // ---------- Yeet ----------
 function planetaryYeet(){
-  if(!G.yeetReady)return;
-  G.yeetReady=false;yeetBtn.disabled=true;yeetBtn.classList.remove('ready');
-  G.yeetCd=G.yeetMax;
+  if(state!==STATE.PLAYING && state!==STATE.BOSS)return;
+  if(G.yeetCharge<100)return;
+  G.yeetCharge=0;G.yeetReady=false;
+  yeetBtn.disabled=true;yeetBtn.classList.remove('ready');
   // visual: spawn a giant planet sweep
   G.fxs.push({type:'yeet',x:-200,y:H*.45,vx:1400,r:Math.max(W,H)*.6,life:1.4,max:1.4,color:'#22f0ff'});
   G.shake=Math.max(G.shake,16);
@@ -1183,6 +1298,7 @@ function planetaryYeet(){
 
 // ---------- Starshield (double-tap) ----------
 function tryStarshield(){
+  if(state!==STATE.PLAYING && state!==STATE.BOSS)return;
   if(G.shieldCharge<100)return;
   G.shieldCharge=0;
   G.shieldActive=Math.max(G.shieldActive,7);
@@ -1193,13 +1309,16 @@ function tryStarshield(){
 
 // ---------- Doom Squadron ----------
 function tryDoomSquadron(){
+  if(state!==STATE.PLAYING && state!==STATE.BOSS)return;
   if(G.doomCharge<100||G.doomActive>0)return;
   G.doomCharge=0;
   G.doomActive=30;
-  doomActiveEl.style.display='flex';
-  doomTimerEl.style.display='block';
-  showDialog('doom',()=>{});
-  toastMsg('DOOM SQUADRON ONLINE');
+  doomBtn.disabled=true;
+  doomBtn.classList.remove('ready');
+  doomBtn.classList.add('active');
+  doomTimerEl.textContent='30';
+  Audio.startDoom();
+  toastMsg('DOOM SQUADRON ONLINE',1600);
 }
 
 // ---------- HUD ----------
@@ -1213,10 +1332,9 @@ function hud(){
     waveNameEl.textContent=G.waveDef.name+' · '+Math.max(0,Math.ceil(G.earth))+'%';
   }
   ssFill.style.width=G.shieldCharge+'%';
-  ssDoomFill.style.width=G.doomCharge+'%';
+  if(ssPct)ssPct.textContent=Math.floor(G.shieldCharge)+'%';
   if(G.shieldCharge>=100)ssFill.style.boxShadow='0 0 18px #22f0ff,0 0 36px #22f0ff';
   else ssFill.style.boxShadow='0 0 12px #22f0ff';
-  if(G.doomCharge>=100)ssDoomFill.style.boxShadow='0 0 18px #ff2bd6,0 0 36px #ff2bd6';
 }
 
 // ---------- Drawing ----------
@@ -1294,6 +1412,8 @@ function drawEarth(){
 function drawShip(){
   const p=G.player;if(!p)return;
   const isCyn=G.character==='cynthia';
+  // Invulnerability blink — skip every other ~80ms frame
+  if(G.invuln>0 && Math.floor(G.time*12)%2===0)return;
   ctx.save();ctx.translate(p.x,p.y);
   // engine flame
   ctx.beginPath();
@@ -1651,6 +1771,7 @@ function draw(){
   drawBullets();
   for(const e of G.enemies)drawEnemy(e);
   if(G.boss)drawBoss();
+  drawWingmen();
   drawShip();
   drawParts();
   drawFxs();
@@ -1704,15 +1825,16 @@ function victoryScreen(){
 function resetGame(){
   G.score=0;G.kills=0;G.wave=0;G.multi=1;G.multiTimer=0;
   G.earth=100;G.lives=3;G.time=0;G.spawnT=.5;G.fireCd=0;
-  G.rapid=0;G.shieldActive=0;G.shake=0;
+  G.rapid=0;G.shieldActive=0;G.shake=0;G.invuln=0;
   G.bullets=[];G.enemies=[];G.parts=[];G.fxs=[];
   G.shieldCharge=0;G.doomCharge=0;G.doomActive=0;
-  G.yeetCd=0;G.yeetReady=true;yeetBtn.disabled=false;yeetBtn.classList.add('ready');
+  G.yeetCharge=0;G.yeetReady=false;
+  yeetBtn.disabled=true;yeetBtn.classList.remove('ready');
+  doomBtn.disabled=true;doomBtn.classList.remove('ready');doomBtn.classList.remove('active');
   G.weapon='pew';G.weaponLv=1;
   G.boss=null;bossBarWrap.style.display='none';
   G.player=makePlayer();
   weaponInd.textContent=WEAPON_NAMES[G.weapon];
-  doomActiveEl.style.display='none';doomTimerEl.style.display='none';
   hud();
 }
 
@@ -1827,19 +1949,22 @@ goRetry.onclick=()=>{
   state=STATE.TITLE;
 };
 yeetBtn.addEventListener('pointerdown',e=>{e.stopPropagation();planetaryYeet()});
+doomBtn.addEventListener('pointerdown',e=>{e.stopPropagation();tryDoomSquadron()});
 soundToggle.addEventListener('pointerdown',e=>{e.stopPropagation();Audio.toggleMute()});
 
-// Long-press on Starshield bar to fire Doom Squadron when both meters full + tap toggles
+// Tap the Starshield bar to deploy Starshield when full
 document.getElementById('starshield').addEventListener('pointerdown',e=>{
   e.stopPropagation();
-  if(G.doomCharge>=100)tryDoomSquadron();
-  else if(G.shieldCharge>=100)tryStarshield();
+  if(G.shieldCharge>=100)tryStarshield();
 });
 
 // Visibility: pause audio when hidden
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden){bgm.pause();bossBgm.pause()}
-  else if(state===STATE.PLAYING||state===STATE.BOSS){Audio.play(G.boss?'boss':'main')}
+  if(document.hidden){bgm.pause();bossBgm.pause();doomBgm.pause()}
+  else if(state===STATE.PLAYING||state===STATE.BOSS){
+    if(G.doomActive>0)Audio.play('doom');
+    else Audio.play(G.boss?'boss':'main');
+  }
 });
 
 // Bootstrap
