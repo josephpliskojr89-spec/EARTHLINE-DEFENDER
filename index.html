@@ -43,13 +43,8 @@
   #bossBar{height:8px;background:#1a0030;border-radius:4px;overflow:hidden;border:1px solid rgba(255,255,255,.2);margin-top:3px}
   #bossBarFill{height:100%;width:100%;background:linear-gradient(90deg,#ffd23a,#ff2bd6,#9b3bff);box-shadow:0 0 12px var(--magenta);transition:width .25s}
 
-  #hudBottom{padding:0 10px calc(10px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:6px;pointer-events:none}
+  #hudBottom{padding:0 10px calc(10px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:8px;pointer-events:none}
   #weaponInd{margin:0 auto;font-size:11px;color:var(--yellow);letter-spacing:.22em;text-shadow:0 0 10px var(--yellow);background:rgba(0,0,0,.55);padding:4px 12px;border:1px solid var(--yellow);border-radius:14px;pointer-events:none;display:inline-block;align-self:center;white-space:nowrap;text-align:center}
-  #starshield{width:100%;max-width:520px;margin:0 auto;height:42px;border:2px solid var(--cyan);border-radius:10px;background:linear-gradient(180deg,rgba(0,20,40,.85),rgba(0,10,30,.6));padding:4px 10px;box-shadow:0 0 12px rgba(34,240,255,.35),inset 0 0 18px rgba(34,240,255,.12);pointer-events:auto}
-  #starshield .ssLbl{font-size:9px;color:var(--cyan);letter-spacing:.22em;text-align:center}
-  #ssBar{position:relative;height:10px;background:#02101c;border-radius:4px;overflow:hidden;margin-top:3px;border:1px solid rgba(34,240,255,.4)}
-  #ssFill{height:100%;width:0%;background:linear-gradient(90deg,var(--cyan),#7dff4d,var(--cyan));box-shadow:0 0 12px var(--cyan);transition:width .15s}
-  #ssLabels{display:flex;justify-content:space-between;font-size:8px;color:#9aa;letter-spacing:.18em;margin-top:2px}
 
   #bottomBtns{display:flex;justify-content:space-between;align-items:center;width:100%;gap:8px}
   .actionBtn{pointer-events:auto;width:84px;height:84px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#1a0030,#0a0014 70%);font-family:inherit;font-weight:900;font-size:10px;letter-spacing:.14em;position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.1;padding:6px;flex:0 0 auto}
@@ -73,11 +68,10 @@
   #doomBtn.active{border-color:var(--yellow);color:var(--yellow);text-shadow:0 0 10px var(--yellow);box-shadow:0 0 30px rgba(255,210,58,.85),inset 0 0 18px rgba(255,210,58,.4)}
   #doomBtn.active .icon{text-shadow:0 0 12px var(--yellow)}
 
-  /* Smaller screens (≤380w): shrink action buttons & starshield label */
+  /* Smaller screens (≤380w): shrink action buttons */
   @media (max-width:380px){
     .actionBtn{width:76px;height:76px;font-size:9px}
     .actionBtn .icon{font-size:18px}
-    #starshield{height:40px}
   }
   /* Very tall iPhones get a bit more room — already covered by flex */
 
@@ -173,11 +167,6 @@
   <div id="hudCenter"></div>
   <div id="hudBottom">
     <div id="weaponInd">PEW CANNON</div>
-    <div id="starshield">
-      <div class="ssLbl">STARSHIELD</div>
-      <div id="ssBar"><div id="ssFill"></div></div>
-      <div id="ssLabels"><span>DOUBLE-TAP TO DEPLOY</span><span id="ssPct">0%</span></div>
-    </div>
     <div id="bottomBtns">
       <button id="doomBtn" class="actionBtn" disabled>
         <span><span class="icon">🚀</span>DOOM<br>SQUAD</span>
@@ -269,8 +258,6 @@ const bestEl=document.getElementById('best');
 const bossBarWrap=document.getElementById('bossBarWrap');
 const bossBarFill=document.getElementById('bossBarFill');
 const bossNameEl=document.getElementById('bossName');
-const ssFill=document.getElementById('ssFill');
-const ssPct=document.getElementById('ssPct');
 const yeetBtn=document.getElementById('yeetBtn');
 const yeetCd=document.getElementById('yeetCd');
 const doomBtn=document.getElementById('doomBtn');
@@ -420,45 +407,54 @@ if(cynthiaUnlocked){
 }
 
 const keys=new Set(),pointer={active:false,x:0,y:0,startX:0,startY:0,downTime:0};
-let lastTap=0; // for double-tap starshield
 
 // Master game state
 const G={
-  score:0,kills:0,wave:1,multi:1,multiTimer:0,
+  score:0,kills:0,multi:1,multiTimer:0,
   earth:100,
   time:0,spawnT:0,fireCd:0,
   rapid:0,shield:0,shake:0,
   player:null,bullets:[],enemies:[],parts:[],fxs:[],
-  shieldCharge:0, // 0-100, double-tap to spend
-  shieldActive:0, // seconds remaining when active
-  doomCharge:0,   // 0-100, fast to fill (firepower boost)
+  shieldActive:0, // seconds remaining when shield power-up is active
+  doomCharge:0,   // 0-100, paused while doomActive>0
   doomActive:0,   // seconds remaining
-  yeetCharge:0,   // 0-100, slow to fill (screen clear)
-  yeetReady:false,
+  yeetAvailable:true, // once-per-stage, refreshes on new stage, locked during boss
   invuln:0,       // post-hit invulnerability seconds
-  weapon:'pew', weaponLv:1,
+  weapon:'pew', weaponLv:1, weaponStep:0, // 0..11 — deterministic progression index
   boss:null, bossPhase:1,
-  waveDef:null, waveProgress:0,
+  // Stage / wave tracking
+  stage:1, stageDef:null,
+  waveInStage:1, waveDef:null, waveProgress:0,
+  weaponDropsThisStage:0, killsThisStage:0,
   isEndless:false, character:'moore',
   starOff:0, starOff2:0
 };
 
 // ---------- Wave / Boss config ----------
-const WAVE_DEFS=[
-  // {name, duration, spawnRate, types[], boss?, dialog?}
-  {name:'STEROID RUSH!',     dur:30, rate:[1.0,.5],  types:['steroid','asteroid'], dialog:'wave1'},
-  {name:'COMET BARRAGE',     dur:34, rate:[.95,.45], types:['steroid','asteroid','comet']},
-  {name:'OCTOPUS INVASION',  dur:38, rate:[.9,.42],  types:['octopus','comet','steroid']},
-  {name:'BLACK FRIDAY',      dur:40, rate:[.85,.4],  types:['blackfriday','octopus','steroid','asteroid']},
-  {name:'SQUIRT ATTACK!',    dur:0,  boss:'squirt',  dialog:'boss_squirt'},
-  {name:'COMET LEECH SWARM', dur:38, rate:[.8,.36],  types:['leech','comet','octopus']},
-  {name:'ORBITAL CHAOS',     dur:42, rate:[.78,.34], types:['swarmer','octopus','leech','steroid']},
-  {name:'ABDUCTION ZONE',    dur:44, rate:[.75,.32], types:['ufo','swarmer','octopus','blackfriday']},
-  {name:'GRAV-TURRET',       dur:0,  boss:'grav',    dialog:'boss_grav'},
-  {name:'KRAKEN ALERT!',     dur:0,  boss:'tentaclon',dialog:'boss_tentaclon'},
-  {name:'DEEP SPACE PURGE',  dur:46, rate:[.7,.3],   types:['leech','swarmer','ufo','octopus','blackfriday','comet']},
-  {name:'MOTHERSHIP INBOUND',dur:0,  boss:'mothership',dialog:'boss_mothership'},
-  {name:'LUNAR MOOD SWING',  dur:0,  boss:'moon',    dialog:'boss_moon', final:true}
+// ---------- Stage definitions ----------
+// Each stage = 5 waves of regular spawning, then a boss fight.
+// Cleared in order. After Stage 5's boss dies, the game completes.
+const STAGES=[
+  {n:1, name:'STAGE 1 · FIRST CONTACT',
+   waveDur:28, rate:[.9,.45],
+   enemies:['asteroid','comet','steroid'],
+   boss:'squirt', bossDialog:'boss_squirt'},
+  {n:2, name:'STAGE 2 · CABAL RISING',
+   waveDur:30, rate:[.85,.42],
+   enemies:['swarmer','ufo','octopus','steroid'],
+   boss:'tentaclon', bossDialog:'boss_tentaclon'},
+  {n:3, name:'STAGE 3 · BLACK FRIDAY',
+   waveDur:32, rate:[.8,.4],
+   enemies:['blackfriday','leech','comet','octopus','steroid'],
+   boss:'mothership', bossDialog:'boss_mothership'},
+  {n:4, name:'STAGE 4 · THE DEEP',
+   waveDur:34, rate:[.75,.35],
+   enemies:['steroid','octopus','leech','swarmer','blackfriday','ufo','comet','asteroid','gravturret'],
+   boss:'kraken', bossDialog:'boss_kraken'},
+  {n:5, name:'STAGE 5 · LUNAR THREAT',
+   waveDur:34, rate:[.7,.32],
+   enemies:['steroid','octopus','leech','swarmer','blackfriday','ufo','comet','moonrock','gravturret'],
+   boss:'moon', bossDialog:'boss_moon', final:true}
 ];
 
 const DIALOG={
@@ -466,17 +462,19 @@ const DIALOG={
     {who:'CAPT. MOORE GUNNS', p:'moore', t:'Earth Sentinel Command. Captain Moore Gunns reporting. Sky is full of garbage again.'},
     {who:'CAPT. MOORE GUNNS', p:'moore', t:'Cynthia is captured by the Cabal. I will get her back. After I shoot everything.'}
   ],
-  wave1:[{who:'CAPT. MOORE GUNNS', p:'moore', t:'Steroid canisters? Really? Whatever. Pew time.'}],
   boss_squirt:[
     {who:'CAPT. MOORE GUNNS', p:'moore', t:'A baby octopus. With attitude.'},
     {who:'???', p:'cynthia', t:'(...transmitting from inside. He has no idea.)'}
   ],
-  boss_grav:[{who:'CAPT. MOORE GUNNS', p:'moore', t:'A stationary turret the size of a building. Charming.'}],
   boss_tentaclon:[
     {who:'CAPT. MOORE GUNNS', p:'moore', t:'TENTACLON ELITE. Cynthia, if you can hear me — I am coming!'},
     {who:'CYNTHIA CANNON', p:'cynthia', t:'(I am literally three moves ahead of you, Moore.)'}
   ],
   boss_mothership:[{who:'CAPT. MOORE GUNNS', p:'moore', t:'Steroid Mothership. Two weakpoints. Aim for the glow.'}],
+  boss_kraken:[
+    {who:'CAPT. MOORE GUNNS', p:'moore', t:'THE KRAKEN. The deep just sent up its champion.'},
+    {who:'CYNTHIA CANNON', p:'cynthia', t:'(Almost done. Hold the line.)'}
+  ],
   boss_moon:[
     {who:'CAPT. MOORE GUNNS', p:'moore', t:'The MOON. The actual moon. With mood swings.'},
     {who:'CYNTHIA CANNON', p:'cynthia', t:'Moore. Hold on. Coming to save you.'},
@@ -509,7 +507,11 @@ const ENEMY_DEFS={
   // 6. Abductor UFO — heavy shield, abducts civilians
   ufo:        {hp:10,spd:75,  r:26, score:280, dmg:18, color:'#7dff4d', size:'L'},
   // Standard comet keeper from prototype
-  comet:      {hp:3, spd:160, r:16, score:80,  dmg:14, color:'#9ff2ff', size:'S'}
+  comet:      {hp:3, spd:160, r:16, score:80,  dmg:14, color:'#9ff2ff', size:'S'},
+  // Stage 4 hazard — slow, heavy stationary turret that fires aimed shots
+  gravturret: {hp:12,spd:45,  r:22, score:320, dmg:18, color:'#a0a0a0', size:'L'},
+  // Stage 5 hazard — moon rock chunk, hits hard
+  moonrock:   {hp:3, spd:130, r:18, score:90,  dmg:16, color:'#cfc8b5', size:'M'}
 };
 
 // ---------- Boss definitions ----------
@@ -555,6 +557,36 @@ function flash(x,y,r,color){
 }
 function shockwave(x,y){G.fxs.push({type:'ring',x,y,r0:10,r1:Math.max(W,H)*.9,life:.45,max:.45,color:'#fff'})}
 
+// Earthquake Bomb AOE: splashes nearby enemies and boss after a bullet impact.
+function applyAOE(x,y,r,dmg,excludeEnemyIdx,excludeBoss){
+  if(!r||!dmg)return;
+  G.fxs.push({type:'ring',x,y,r0:r*.2,r1:r,life:.4,max:.4,color:'#ffd23a'});
+  G.shake=Math.max(G.shake,7);
+  Audio.sQuake();
+  const r2=r*r;
+  for(let k=G.enemies.length-1;k>=0;k--){
+    if(k===excludeEnemyIdx)continue;
+    const e=G.enemies[k];
+    if(e.type==='power')continue;
+    if(e.y<e.r)continue; // off-screen gate respected
+    const dx=e.x-x,dy=e.y-y;
+    if(dx*dx+dy*dy<=r2){
+      e.hp-=dmg;
+      burst(e.x,e.y,'#ffd23a',5,150);
+      if(e.hp<=0){e._dead=true;killEnemy(e,k)}
+    }
+  }
+  if(G.boss && !excludeBoss){
+    const dx=G.boss.x-x,dy=G.boss.y-y;
+    if(dx*dx+dy*dy<=(r+G.boss.r*.5)**2){
+      G.boss.hp-=dmg;
+      flash(G.boss.x,G.boss.y,G.boss.r+10,'#ffd23a');
+      bossBarFill.style.width=Math.max(0,G.boss.hp/G.boss.maxHp*100)+'%';
+      if(G.boss.hp<=0){endBoss();onBossDefeated()}
+    }
+  }
+}
+
 // ---------- Player ----------
 function makePlayer(){
   const isCyn=G.character==='cynthia';
@@ -568,7 +600,7 @@ function makePlayer(){
 // ---------- Spawning ----------
 function spawnType(type){
   const b=ENEMY_DEFS[type];if(!b)return;
-  const waveScale=1+Math.floor(G.wave/3)*.2;
+  const waveScale=1+(G.stage-1)*.18;
   const sc=rand(.85,1.18);
   const hp=Math.ceil(b.hp*waveScale);
   const e={
@@ -599,15 +631,39 @@ function spawnMinionForBoss(boss){
   G.enemies.push(e);
 }
 
+// Random drop pool: weapon upgrades are NOT in here — those are scheduled
+// deterministically (12 per stage) from killEnemy via forceWeaponDrop().
 function spawnPower(x,y,bias=0){
-  if(Math.random()>.16+bias)return;
-  const kinds=['repair','rapid','shield','weapon'];
+  if(Math.random()>.14+bias)return;
+  const kinds=['repair','rapid','shield'];
   const k=kinds[irand(0,kinds.length)];
   G.enemies.push({
     type:'power',kind:k,x,y,vx:0,vy:90,r:14,hp:1,maxHp:1,rot:0,spin:1.5,
-    color:k==='repair'?'#7dff4d':k==='rapid'?'#ffd23a':k==='shield'?'#22f0ff':'#ff2bd6',
+    color:k==='repair'?'#7dff4d':k==='rapid'?'#ffd23a':'#22f0ff',
     pulse:0,score:0,dmg:0
   });
+}
+
+// Spawn a guaranteed weapon-upgrade drop at (x,y).
+function forceWeaponDrop(x,y){
+  G.enemies.push({
+    type:'power',kind:'weapon',x,y,vx:0,vy:90,r:14,hp:1,maxHp:1,rot:0,spin:1.5,
+    color:'#ff2bd6',pulse:0,score:0,dmg:0
+  });
+}
+
+// Deterministic 12-step weapon progression:
+// 0..2 pew L1-3, 3..5 laser L1-3, 6..8 missiles L1-3, 9..11 quake L1-3.
+const WEAPON_SEQUENCE=[
+  ['pew',1],['pew',2],['pew',3],
+  ['laser',1],['laser',2],['laser',3],
+  ['missiles',1],['missiles',2],['missiles',3],
+  ['quake',1],['quake',2],['quake',3]
+];
+function applyWeaponStep(s){
+  const [w,lv]=WEAPON_SEQUENCE[Math.min(WEAPON_SEQUENCE.length-1,Math.max(0,s))];
+  G.weapon=w;G.weaponLv=lv;
+  weaponInd.textContent=WEAPON_NAMES[w]+(lv>1?' LV'+lv:'');
 }
 
 function collectPower(k){
@@ -615,11 +671,16 @@ function collectPower(k){
   else if(k==='rapid'){G.rapid=8;toastMsg('RAPID FIRE')}
   else if(k==='shield'){G.shieldActive=8;toastMsg('SHIELD ACTIVE')}
   else if(k==='weapon'){
-    // cycle through weapons or upgrade level
-    const idx=WEAPONS.indexOf(G.weapon);
-    if(G.weaponLv<3){G.weaponLv++;toastMsg(WEAPON_NAMES[G.weapon]+' LV '+G.weaponLv)}
-    else{G.weaponLv=1;G.weapon=WEAPONS[(idx+1)%WEAPONS.length];toastMsg('NEW WEAPON: '+WEAPON_NAMES[G.weapon])}
-    weaponInd.textContent=WEAPON_NAMES[G.weapon]+(G.weaponLv>1?' LV'+G.weaponLv:'');
+    if(G.weaponStep>=WEAPON_SEQUENCE.length-1){
+      // Already at max — extra pickups award bonus score instead of cycling
+      const bonus=Math.floor(500*G.multi);
+      G.score+=bonus;
+      toastMsg('MAX WEAPON · +'+bonus.toLocaleString());
+    }else{
+      G.weaponStep++;
+      applyWeaponStep(G.weaponStep);
+      toastMsg('WEAPON: '+WEAPON_NAMES[G.weapon]+(G.weaponLv>1?' LV '+G.weaponLv:''));
+    }
   }
   Audio.sPower();
 }
@@ -698,50 +759,73 @@ function stinger(text,after,dur=1400){
   setTimeout(()=>{stingerEl.style.display='none';if(after)after()},dur);
 }
 
-// ---------- Wave Mgmt ----------
-function startWave(idx){
-  G.wave=idx+1;
-  const def=WAVE_DEFS[idx % WAVE_DEFS.length];
+// ---------- Stage / Wave Mgmt ----------
+function startStage(stageIdx){
+  G.stage=stageIdx+1;
+  G.stageDef=STAGES[stageIdx];
+  G.waveInStage=0;
+  G.weaponDropsThisStage=0;
+  G.killsThisStage=0;
+  G.yeetAvailable=true; // refresh once-per-stage nuke
+  yeetBtn.disabled=false;yeetBtn.classList.add('ready');
+  stinger(G.stageDef.name,()=>{startWaveInStage(0)},1400);
+}
+
+function startWaveInStage(idx){
+  G.waveInStage=idx+1;
+  const def={name:G.stageDef.name+' · WAVE '+G.waveInStage+'/5',
+             dur:G.stageDef.waveDur, rate:G.stageDef.rate, types:G.stageDef.enemies};
   G.waveDef=def;G.waveProgress=0;G.spawnT=.5;
   waveNameEl.textContent=def.name;
-  // dialog?
+  state=STATE.PLAYING;
+}
+
+function startBossForStage(){
+  const stageDef=G.stageDef;
   const proceed=()=>{
-    if(def.boss){
-      stinger('BOSS INCOMING',()=>{spawnBoss(def.boss);state=STATE.BOSS});
-    }else{
-      state=STATE.PLAYING;
-    }
+    stinger('BOSS INCOMING',()=>{spawnBoss(stageDef.boss);state=STATE.BOSS;
+      // Yeet locks out during boss fights
+      yeetBtn.disabled=true;yeetBtn.classList.remove('ready');
+    },1100);
   };
-  if(def.dialog && !G.isEndless){
-    showDialog(def.dialog,proceed);
+  if(stageDef.bossDialog){
+    showDialog(stageDef.bossDialog,proceed);
   }else{
-    stinger(def.name,proceed,900);
+    proceed();
   }
 }
 
-function nextWave(){
-  // check for campaign completion (last wave was final boss)
-  const lastIdx=(G.wave-1)%WAVE_DEFS.length;
-  const last=WAVE_DEFS[lastIdx];
-  if(last && last.final && !G.isEndless){
+function onBossDefeated(){
+  // Boss is gone (endBoss already cleaned up state). Show stage clear.
+  const wasFinal=G.stageDef && G.stageDef.final;
+  if(wasFinal){
     // Campaign complete!
     campaignDone=true;localStorage.setItem('ed_campaign','1');
     cynthiaUnlocked=true;
-    showDialog('victory',()=>{victoryScreen()});
+    stinger('EARTH SAVED',()=>{
+      showDialog('victory',()=>{victoryScreen()});
+    },1600);
     return;
   }
-  if(G.isEndless && G.wave>=WAVE_DEFS.length){
-    // Loop endless: bump difficulty, spawn kraken every 5 loops
-    const loop=Math.floor(G.wave/WAVE_DEFS.length);
-    if(loop>0 && G.wave%5===0){
-      // override with kraken
-      G.waveDef={name:'THE KRAKEN AWAKENS',boss:'kraken',dialog:null,dur:0};
-      waveNameEl.textContent='THE KRAKEN AWAKENS';
-      stinger('KRAKEN ALERT!',()=>{spawnBoss('kraken');state=STATE.BOSS});
+  stinger('STAGE CLEAR',()=>{
+    if(G.stage>=STAGES.length){
+      // safety: somehow past final stage without final flag
+      campaignDone=true;localStorage.setItem('ed_campaign','1');
+      cynthiaUnlocked=true;
+      showDialog('victory',()=>{victoryScreen()});
       return;
     }
+    startStage(G.stage); // current stage was G.stage; next index is G.stage (0-based -> stage)
+  },1600);
+}
+
+// After a non-boss wave timer ends: advance through 5 waves, then boss.
+function advanceWaveOrBoss(){
+  if(G.waveInStage<5){
+    stinger('WAVE CLEAR',()=>startWaveInStage(G.waveInStage),1100);
+  }else{
+    startBossForStage();
   }
-  startWave(G.wave % WAVE_DEFS.length);
 }
 
 // ---------- Update ----------
@@ -766,10 +850,11 @@ function update(dt){
   if(G.doomActive>0){
     doomTimerEl.textContent=Math.ceil(G.doomActive);
   }
-  // Yeet button visual (charge-based)
-  yeetCd.style.background=`conic-gradient(rgba(0,0,0,.55) ${(1-G.yeetCharge/100)*360}deg,transparent 0)`;
-  if(G.yeetCharge>=100 && !G.yeetReady){G.yeetReady=true;yeetBtn.disabled=false;yeetBtn.classList.add('ready')}
-  else if(G.yeetCharge<100 && G.yeetReady){G.yeetReady=false;yeetBtn.disabled=true;yeetBtn.classList.remove('ready')}
+  // Yeet button visual (once-per-stage). Locked out during boss fights.
+  const yeetUsable=G.yeetAvailable && !G.boss && state===STATE.PLAYING;
+  yeetCd.style.background=yeetUsable?'conic-gradient(transparent 0deg,transparent 360deg)':'conic-gradient(rgba(0,0,0,.55) 0deg,rgba(0,0,0,.55) 360deg)';
+  yeetBtn.disabled=!yeetUsable;
+  if(yeetUsable){yeetBtn.classList.add('ready')}else{yeetBtn.classList.remove('ready')}
   // Doom button visual
   doomCd.style.background=`conic-gradient(rgba(0,0,0,.55) ${(1-G.doomCharge/100)*360}deg,transparent 0)`;
   const doomReady=G.doomCharge>=100 && G.doomActive<=0;
@@ -793,22 +878,21 @@ function update(dt){
   // Fire
   if(fire||keys.has(' ')) shoot();
 
-  // Spawning (only when not boss)
-  if(state===STATE.PLAYING && G.waveDef && !G.waveDef.boss){
+  // Spawning (only during a regular wave, not during boss state)
+  if(state===STATE.PLAYING && G.waveDef){
     G.spawnT-=dt;
     if(G.spawnT<=0){
       const types=G.waveDef.types||['steroid','asteroid'];
       const type=types[irand(0,types.length)];
       spawnType(type);
       const [a,b]=G.waveDef.rate;
-      G.spawnT=rand(b,a)*Math.max(.4,1-G.wave*.03);
+      G.spawnT=rand(b,a)*Math.max(.45,1-G.stage*.05);
     }
     G.waveProgress+=dt;
     if(G.waveProgress>=G.waveDef.dur){
-      // wave clear
+      // wave clear → advance through 5 waves, then boss
       state=STATE.CLEAR;
-      const ovr=()=>{nextWave()};
-      stinger('WAVE CLEAR',ovr,1100);
+      advanceWaveOrBoss();
     }
   }
 
@@ -894,6 +978,20 @@ function update(dt){
           }
         }
       }
+    }else if(e.type==='gravturret'){
+      // Slow drift, occasional aimed twin shot
+      e.vx=Math.sin(G.time*.8+e.pulse)*30;
+      e.shotT-=dt;
+      if(e.shotT<=0 && G.player && e.y>0){
+        e.shotT=rand(1.4,2.2);
+        const ang=Math.atan2(G.player.y-e.y,G.player.x-e.x);
+        const sp=220;
+        G.bullets.push({x:e.x-8,y:e.y+8,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,r:5,friend:false,dmg:1,trail:'#cfcfcf'});
+        G.bullets.push({x:e.x+8,y:e.y+8,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,r:5,friend:false,dmg:1,trail:'#cfcfcf'});
+      }
+    }else if(e.type==='moonrock'){
+      // Slight tumble, no shots — just heavy hazard
+      e.vx=Math.sin(G.time*1.4+e.pulse)*40;
     }
     e.x+=e.vx*dt;e.y+=e.vy*dt;e.rot+=e.spin*dt;
     if(e.x<24){e.x=24;e.vx=Math.abs(e.vx)}
@@ -931,7 +1029,7 @@ function update(dt){
         flash(G.boss.x,G.boss.y,G.boss.r+10,'#ff3a5c');
         bossBarFill.style.width=Math.max(0,G.boss.hp/G.boss.maxHp*100)+'%';
         playerHit(22);
-        if(G.boss && G.boss.hp<=0){endBoss();stinger('WAVE CLEAR',()=>nextWave(),1200)}
+        if(G.boss && G.boss.hp<=0){endBoss();onBossDefeated()}
       }
     }
   }
@@ -943,6 +1041,8 @@ function update(dt){
       if(d2(e,p)<(e.r+p.r+8)**2){collectPower(e.kind);burst(e.x,e.y,e.color,14,160);G.enemies.splice(i,1)}
       continue;
     }
+    // Off-screen gate: enemy can't be damaged until fully on-screen
+    if(e.y < e.r) continue;
     // friendly bullets
     for(let j=G.bullets.length-1;j>=0;j--){
       const b=G.bullets[j];if(!b.friend)continue;
@@ -961,6 +1061,7 @@ function update(dt){
           burst(b.x,b.y,'#ffd23a',3,60);
         }
         e.hp-=dmg;
+        const aoe=b.aoe;const ax=b.x,ay=b.y,aR=b.aoeR,aD=b.aoeDmg;
         G.bullets.splice(j,1);
         burst(b.x,b.y,e.color,4,70);
         Audio.sHit();
@@ -968,6 +1069,7 @@ function update(dt){
           e._dead=true;
           killEnemy(e,i);
         }
+        if(aoe) applyAOE(ax,ay,aR,aD,i,false);
         break;
       }
     }
@@ -980,13 +1082,16 @@ function update(dt){
       if(d2(b,G.boss)<(b.r+G.boss.r*.7)**2){
         const dmg=b.dmg||1;
         G.boss.hp-=dmg;
+        const aoe=b.aoe;const ax=b.x,ay=b.y,aR=b.aoeR,aD=b.aoeDmg;
         G.bullets.splice(j,1);
         burst(b.x,b.y,G.boss.color,4,70);
         Audio.sHit();
-        // Boss damage contributes to Yeet charge (tougher enemies hint)
-        G.yeetCharge=Math.min(100,G.yeetCharge+dmg*.35);
-        G.doomCharge=Math.min(100,G.doomCharge+dmg*.4);
+        // Boss damage contributes to Doom charge (paused while Doom is active)
+        if(G.doomActive<=0){
+          G.doomCharge=Math.min(100,G.doomCharge+dmg*.2);
+        }
         bossBarFill.style.width=Math.max(0,G.boss.hp/G.boss.maxHp*100)+'%';
+        if(aoe) applyAOE(ax,ay,aR,aD,-1,true);
         // phase triggers
         for(const ph of G.boss.phases){
           if(G.boss.hp/G.boss.maxHp <= ph && !G.boss._tr?.has(ph)){
@@ -1000,8 +1105,7 @@ function update(dt){
         }
         if(G.boss.hp<=0){
           endBoss();
-          const ovr=()=>{stinger('WAVE CLEAR',()=>nextWave(),1200)};
-          ovr();
+          onBossDefeated();
         }
         break;
       }
@@ -1103,16 +1207,20 @@ function bossAttack(b){
 function killEnemy(e,i){
   G.score+=Math.floor(e.score*G.multi);
   G.kills++;
+  G.killsThisStage++;
   G.multi=Math.min(8, G.multi+.15);
   G.multiTimer=3.2;
   const tough=e.dmg>=14;
-  // Doom Squadron — fast charge (firepower boost)
-  G.doomCharge=Math.min(100,G.doomCharge+(tough?4:2.6));
-  // Planetary Yeet — slow charge (screen clear); tougher enemies + combo help
-  const comboBonus=Math.min(.6,(G.multi-1)*.15);
-  G.yeetCharge=Math.min(100,G.yeetCharge+(tough?1.4:.7)+comboBonus);
-  // Starshield — moderate charge
-  G.shieldCharge=Math.min(100,G.shieldCharge+(tough?2.2:1.4));
+  // Doom Squadron charge — paused while active so it can't chain
+  if(G.doomActive<=0){
+    G.doomCharge=Math.min(100,G.doomCharge+(tough?1.8:1.1));
+  }
+  // Weapon drop scheduler — exactly 12 per stage, distributed across kills
+  const dropEvery=8; // kills per scheduled drop (covers 96 kills for 12 drops)
+  if(G.weaponDropsThisStage<12 && G.killsThisStage>=dropEvery*(G.weaponDropsThisStage+1)){
+    G.weaponDropsThisStage++;
+    forceWeaponDrop(e.x,e.y);
+  }
   // explosion variations
   if(e.type==='steroid'){
     // explodes, releases pink plasma bullets in 6 directions
@@ -1218,11 +1326,15 @@ function shoot(){
     }
     Audio.sMissile();
   }else if(G.weapon==='quake'){
-    cd=rapid?.32:.55;
-    if(doom)cd*=.4;
-    // heavy area shot
-    G.bullets.push({x:p.x,y:p.y-24,vx:0,vy:-560,r:9,friend:true,dmg:3+lv,trail:'#ffd23a',life:1.6});
-    G.shake=Math.max(G.shake,3);
+    // Slow but catastrophic. Every impact explodes with AOE splash.
+    cd=rapid?.5:.85;
+    if(doom)cd*=.5;
+    // base 8/11/14 direct damage by level + AOE radius scales with level
+    const baseDmg=5+lv*3;
+    const aoeR=68+lv*16; // 84 / 100 / 116 px splash
+    const aoeDmg=Math.max(2,Math.floor(baseDmg*.5));
+    G.bullets.push({x:p.x,y:p.y-24,vx:0,vy:-540,r:11,friend:true,dmg:baseDmg,trail:'#ffd23a',life:2.2,aoe:true,aoeR,aoeDmg});
+    G.shake=Math.max(G.shake,4);
     Audio.sQuake();
   }else{cd=.14}
 
@@ -1267,18 +1379,19 @@ function drawWing(x,y,img,c1,c2,initial){
   ctx.restore();
 }
 
-// ---------- Yeet ----------
+// ---------- Yeet (once per stage; locked out during boss fights) ----------
 function planetaryYeet(){
-  if(state!==STATE.PLAYING && state!==STATE.BOSS)return;
-  if(G.yeetCharge<100)return;
-  G.yeetCharge=0;G.yeetReady=false;
+  if(state!==STATE.PLAYING)return;       // bosses are off-limits
+  if(G.boss)return;
+  if(!G.yeetAvailable)return;
+  G.yeetAvailable=false;
   yeetBtn.disabled=true;yeetBtn.classList.remove('ready');
   // visual: spawn a giant planet sweep
   G.fxs.push({type:'yeet',x:-200,y:H*.45,vx:1400,r:Math.max(W,H)*.6,life:1.4,max:1.4,color:'#22f0ff'});
   G.shake=Math.max(G.shake,16);
   shockwave(W/2,H/2);
   Audio.sYeet();
-  // clear all enemies on screen (boss gets % dmg only)
+  // Clear all normal enemies and projectiles on screen (boss is unreachable here)
   for(let i=G.enemies.length-1;i>=0;i--){
     const e=G.enemies[i];if(e.type==='power')continue;
     burst(e.x,e.y,e.color,16,200);
@@ -1286,26 +1399,9 @@ function planetaryYeet(){
     G.kills++;
     G.enemies.splice(i,1);
   }
-  // clear hostile bullets
+  // Clear hostile bullets
   G.bullets=G.bullets.filter(b=>b.friend);
-  if(G.boss){
-    G.boss.hp-=Math.floor(G.boss.maxHp*.12);
-    flash(G.boss.x,G.boss.y,G.boss.r+30,'#22f0ff');
-    bossBarFill.style.width=Math.max(0,G.boss.hp/G.boss.maxHp*100)+'%';
-    if(G.boss.hp<=0){endBoss();stinger('WAVE CLEAR',()=>nextWave(),1200)}
-  }
   toastMsg('PLANETARY YEET');
-}
-
-// ---------- Starshield (double-tap) ----------
-function tryStarshield(){
-  if(state!==STATE.PLAYING && state!==STATE.BOSS)return;
-  if(G.shieldCharge<100)return;
-  G.shieldCharge=0;
-  G.shieldActive=Math.max(G.shieldActive,7);
-  Audio.sShield();
-  flash(G.player.x,G.player.y,80,'#22f0ff');
-  toastMsg('STARSHIELD UP');
 }
 
 // ---------- Doom Squadron ----------
@@ -1333,10 +1429,6 @@ function hud(){
   if(G.waveDef && !G.boss){
     waveNameEl.textContent=G.waveDef.name;
   }
-  ssFill.style.width=G.shieldCharge+'%';
-  if(ssPct)ssPct.textContent=Math.floor(G.shieldCharge)+'%';
-  if(G.shieldCharge>=100)ssFill.style.boxShadow='0 0 18px #22f0ff,0 0 36px #22f0ff';
-  else ssFill.style.boxShadow='0 0 12px #22f0ff';
 }
 
 // ---------- Drawing ----------
@@ -1591,6 +1683,41 @@ function drawEnemy(e){
       }
       break;
     }
+    case 'gravturret':{
+      // Mini grav-turret enemy: gray dish with twin cannons + red core
+      ctx.fillStyle='#3a3a4a';
+      ctx.beginPath();ctx.arc(0,0,e.r,0,TAU);ctx.fill();
+      ctx.strokeStyle='#cfcfcf';ctx.lineWidth=2;ctx.stroke();
+      ctx.fillStyle='#222';
+      ctx.fillRect(-e.r*.45,e.r*.05,e.r*.18,e.r*.7);
+      ctx.fillRect( e.r*.27,e.r*.05,e.r*.18,e.r*.7);
+      ctx.fillStyle='#ff3a5c';
+      ctx.fillRect(-e.r*.43,e.r*.6,e.r*.14,e.r*.18);
+      ctx.fillRect( e.r*.29,e.r*.6,e.r*.14,e.r*.18);
+      ctx.beginPath();ctx.arc(0,0,e.r*.3+Math.sin(e.pulse*3)*2,0,TAU);
+      ctx.fillStyle='rgba(255,58,92,.65)';ctx.fill();
+      break;
+    }
+    case 'moonrock':{
+      // Pock-marked grey chunk
+      ctx.beginPath();
+      for(let i=0;i<10;i++){
+        const a=i/10*TAU,r=e.r*(.78+.28*Math.sin(i*2.4+e.pulse));
+        const x=Math.cos(a)*r,y=Math.sin(a)*r;
+        if(i)ctx.lineTo(x,y);else ctx.moveTo(x,y);
+      }
+      ctx.closePath();
+      const g=ctx.createRadialGradient(-e.r*.2,-e.r*.3,2,0,0,e.r);
+      g.addColorStop(0,'#f4eed8');g.addColorStop(.5,'#cfc8b5');g.addColorStop(1,'#5f5848');
+      ctx.fillStyle=g;ctx.fill();
+      ctx.strokeStyle='#9a8f78';ctx.lineWidth=2;ctx.stroke();
+      // craters
+      ctx.fillStyle='rgba(40,32,20,.4)';
+      ctx.beginPath();ctx.arc(-e.r*.3,-e.r*.15,e.r*.18,0,TAU);ctx.fill();
+      ctx.beginPath();ctx.arc(e.r*.2,e.r*.25,e.r*.14,0,TAU);ctx.fill();
+      ctx.beginPath();ctx.arc(e.r*.35,-e.r*.3,e.r*.08,0,TAU);ctx.fill();
+      break;
+    }
   }
   ctx.restore();
 }
@@ -1799,7 +1926,7 @@ function gameOver(){
   goSub.textContent='The comets are smug.';
   goScore.textContent=Math.floor(G.score).toLocaleString();
   goBest.textContent=best.toLocaleString();
-  goWave.textContent=G.wave;
+  goWave.textContent='S'+G.stage+' W'+G.waveInStage;
   goKills.textContent=G.kills;
   // Pause world while game-over dialog plays
   state=STATE.DIALOG;
@@ -1820,7 +1947,7 @@ function victoryScreen(){
   goSub.textContent='Cynthia unlocked. Endless awaits.';
   goScore.textContent=Math.floor(G.score).toLocaleString();
   goBest.textContent=best.toLocaleString();
-  goWave.textContent=G.wave;
+  goWave.textContent='S'+G.stage+' W'+G.waveInStage;
   goKills.textContent=G.kills;
   cynthiaBtn.classList.remove('locked');
   cynthiaBtn.disabled=false;
@@ -1830,15 +1957,17 @@ function victoryScreen(){
 
 // ---------- Init / Reset ----------
 function resetGame(){
-  G.score=0;G.kills=0;G.wave=0;G.multi=1;G.multiTimer=0;
+  G.score=0;G.kills=0;G.multi=1;G.multiTimer=0;
   G.earth=100;G.time=0;G.spawnT=.5;G.fireCd=0;
   G.rapid=0;G.shieldActive=0;G.shake=0;G.invuln=0;
   G.bullets=[];G.enemies=[];G.parts=[];G.fxs=[];
-  G.shieldCharge=0;G.doomCharge=0;G.doomActive=0;
-  G.yeetCharge=0;G.yeetReady=false;
-  yeetBtn.disabled=true;yeetBtn.classList.remove('ready');
+  G.doomCharge=0;G.doomActive=0;
+  G.yeetAvailable=true;
+  yeetBtn.disabled=false;yeetBtn.classList.add('ready');
   doomBtn.disabled=true;doomBtn.classList.remove('ready');doomBtn.classList.remove('active');
-  G.weapon='pew';G.weaponLv=1;
+  G.weapon='pew';G.weaponLv=1;G.weaponStep=0;
+  G.stage=1;G.stageDef=null;G.waveInStage=0;
+  G.weaponDropsThisStage=0;G.killsThisStage=0;
   G.boss=null;bossBarWrap.style.display='none';
   G.player=makePlayer();
   weaponInd.textContent=WEAPON_NAMES[G.weapon];
@@ -1851,7 +1980,7 @@ function startCampaign(){
   G.isEndless=false;G.character='moore';
   resetGame();
   Audio.play('main');
-  showDialog('intro',()=>{startWave(0)});
+  showDialog('intro',()=>{startStage(0)});
   if(!last)last=performance.now();
   loop(performance.now());
 }
@@ -1861,7 +1990,7 @@ function startEndless(){
   G.isEndless=true;G.character='moore';
   resetGame();
   Audio.play('main');
-  startWave(0);
+  startStage(0);
   loop(performance.now());
 }
 function startCynthia(){
@@ -1874,7 +2003,7 @@ function startCynthia(){
   if(G.player){G.player.spd=470}
   G.earth=80;
   Audio.play('main');
-  showDialog('victory',()=>{startWave(0)});
+  showDialog('victory',()=>{startStage(0)});
   loop(performance.now());
 }
 
@@ -1916,7 +2045,6 @@ addEventListener('keydown',e=>{
   if(k===' ')e.preventDefault();
   if(k==='y')planetaryYeet();
   if(k==='d')tryDoomSquadron();
-  if(k==='e')tryStarshield();
 });
 addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
 
@@ -1929,10 +2057,6 @@ canvas.addEventListener('pointerdown',e=>{
   const x=e.clientX-r.left,y=e.clientY-r.top;
   pointer.active=true;fire=true;
   pointer.x=x;pointer.y=y;pointer.startX=x;pointer.startY=y;pointer.downTime=performance.now();
-  // double-tap starshield
-  const now=performance.now();
-  if(now-lastTap<280){tryStarshield()}
-  lastTap=now;
 });
 canvas.addEventListener('pointermove',e=>{
   if(!pointer.active)return;
@@ -1958,12 +2082,6 @@ goRetry.onclick=()=>{
 yeetBtn.addEventListener('pointerdown',e=>{e.stopPropagation();planetaryYeet()});
 doomBtn.addEventListener('pointerdown',e=>{e.stopPropagation();tryDoomSquadron()});
 soundToggle.addEventListener('pointerdown',e=>{e.stopPropagation();Audio.toggleMute()});
-
-// Tap the Starshield bar to deploy Starshield when full
-document.getElementById('starshield').addEventListener('pointerdown',e=>{
-  e.stopPropagation();
-  if(G.shieldCharge>=100)tryStarshield();
-});
 
 // Visibility: pause audio when hidden
 document.addEventListener('visibilitychange',()=>{
