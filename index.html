@@ -89,7 +89,12 @@
   .doomBubble .nm{position:absolute;bottom:-14px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--green);letter-spacing:.18em;text-shadow:0 0 6px #000;background:rgba(0,0,0,.6);padding:1px 6px;border-radius:4px}
   #doomTimer{position:fixed;top:calc(30% + 70px);left:50%;transform:translateX(-50%);color:var(--green);font-size:12px;letter-spacing:.22em;text-shadow:0 0 8px var(--green);display:none;z-index:4}
 
-  /* ============ Overlays ============ */
+  /* ============ Splash (first thing seen) ============ */
+  #splash{position:fixed;inset:0;z-index:15;display:flex;align-items:flex-end;justify-content:center;background:#02000a url('assets/img/splash.jpg') center center/cover no-repeat;image-rendering:pixelated;cursor:pointer;padding:0 0 calc(58px + env(safe-area-inset-bottom,0px))}
+  #splash::after{content:"TAP TO PLAY";color:var(--green);font-size:13px;letter-spacing:.38em;text-shadow:0 0 12px var(--green),0 0 22px rgba(125,255,77,.6);animation:coinBlink 1s infinite;background:rgba(2,0,10,.55);padding:6px 16px;border:1px solid rgba(125,255,77,.6);border-radius:6px}
+  #splash.fadeOut{opacity:0;transition:opacity .35s ease-out;pointer-events:none}
+
+  /* ============ Title screen ============ */
   #title{position:fixed;inset:0;display:flex;align-items:stretch;justify-content:center;background:#02000a;background-size:cover;background-position:center;z-index:10}
   #title .titleArt{position:absolute;inset:0;background-image:url('assets/img/moore_gunns.png');background-size:cover;background-position:center top;opacity:.96}
   #title .titleVignette{position:absolute;inset:0;background:radial-gradient(circle at 50% 35%,rgba(0,0,0,0) 0%,rgba(0,0,0,.0) 35%,rgba(0,0,0,.7) 80%,rgba(2,0,10,1) 100%),linear-gradient(180deg,rgba(2,0,10,0) 55%,rgba(2,0,10,.92) 100%)}
@@ -188,6 +193,9 @@
 </div>
 
 <div id="toast"></div>
+
+<!-- Splash screen (shown first, tap to dismiss) -->
+<div id="splash"></div>
 
 <!-- Title screen -->
 <div id="title">
@@ -1965,6 +1973,17 @@ document.addEventListener('visibilitychange',()=>{
     else Audio.play(G.boss?'boss':'main');
   }
 });
+
+// Splash → title transition (one-time, first launch of session)
+const splashEl=document.getElementById('splash');
+function dismissSplash(){
+  if(!splashEl||splashEl.classList.contains('fadeOut'))return;
+  // Unlock audio context on the user-gesture tap so the title music can start later
+  Audio.ensureAC();
+  splashEl.classList.add('fadeOut');
+  setTimeout(()=>{if(splashEl.parentNode)splashEl.parentNode.removeChild(splashEl)},400);
+}
+splashEl.addEventListener('pointerdown',dismissSplash);
 
 // Bootstrap
 (async ()=>{

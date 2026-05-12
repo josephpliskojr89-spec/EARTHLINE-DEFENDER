@@ -1,11 +1,12 @@
 /* Earthline Defender — service worker
    Cache-first offline shell for the single-file game. */
-const CACHE='earthline-v6';
+const CACHE='earthline-v7';
 const ASSETS=[
   './',
   './index.html',
   './manifest.json',
   './assets/img/starfield.png',
+  './assets/img/splash.jpg',
   './assets/img/moore_gunns.png',
   './assets/img/cynthia_cannon.png',
   './assets/img/doom_squadron.png',
