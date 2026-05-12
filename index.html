@@ -152,7 +152,7 @@
       <div class="small" id="multi">x1</div>
     </div>
     <div class="hCell" style="text-align:center">
-      <div class="lbl" id="lives">LIVES ♥♥♥</div>
+      <div class="lbl" id="lives">EARTH 100%</div>
       <div id="waveBanner"><span class="tri">▲</span><span id="waveName">SECTOR 1</span><span class="tri">▲</span></div>
       <div id="bossBarWrap">
         <div class="bossName" id="bossName">BOSS</div>
@@ -413,7 +413,7 @@ let lastTap=0; // for double-tap starshield
 // Master game state
 const G={
   score:0,kills:0,wave:1,multi:1,multiTimer:0,
-  earth:100,lives:3,
+  earth:100,
   time:0,spawnT:0,fireCd:0,
   rapid:0,shield:0,shake:0,
   player:null,bullets:[],enemies:[],parts:[],fxs:[],
@@ -888,18 +888,18 @@ function update(dt){
     if(e.x>W-24){e.x=W-24;e.vx=-Math.abs(e.vx)}
   });
 
-  // Bullet vs player → costs a life (with invuln window)
+  // Bullet vs player → damages Earth (with invuln window)
   if(state!==STATE.OVER){
     for(let i=G.bullets.length-1;i>=0;i--){
       const b=G.bullets[i];if(b.friend)continue;
       if(d2(b,p)<(b.r+p.r)**2){
         G.bullets.splice(i,1);
-        loseLife();
-        if(G.lives<=0)break;
+        playerHit(10);
+        if(G.earth<=0)break;
       }
     }
   }
-  // Enemy collision with player → costs a life AND destroys the enemy
+  // Enemy collision with player → damages Earth AND destroys the enemy
   if(state!==STATE.OVER && G.invuln<=0){
     for(let i=G.enemies.length-1;i>=0;i--){
       const e=G.enemies[i];if(e.type==='power')continue;
@@ -907,18 +907,18 @@ function update(dt){
         burst(e.x,e.y,e.color,20,220);
         Audio.sExplode();
         G.enemies.splice(i,1);
-        loseLife();
-        if(G.lives<=0)break;
+        playerHit(18);
+        if(G.earth<=0)break;
       }
     }
-    // Boss body slam: heavy boss damage + life cost, boss survives
+    // Boss body slam: heavy boss damage + Earth hit, boss survives
     if(G.boss && G.invuln<=0){
       if(d2(G.boss,p)<(G.boss.r*.85+p.r)**2){
         const slamDmg=Math.max(8,Math.floor(G.boss.maxHp*.04));
         G.boss.hp-=slamDmg;
         flash(G.boss.x,G.boss.y,G.boss.r+10,'#ff3a5c');
         bossBarFill.style.width=Math.max(0,G.boss.hp/G.boss.maxHp*100)+'%';
-        loseLife();
+        playerHit(22);
         if(G.boss && G.boss.hp<=0){endBoss();stinger('WAVE CLEAR',()=>nextWave(),1200)}
       }
     }
@@ -1129,7 +1129,7 @@ function killEnemy(e,i){
   G.enemies.splice(i,1);
 }
 
-// Earth damage NEVER removes lives — earth-only path
+// Earth is the only HP. Game over when it hits 0.
 function damageEarth(dmg){
   if(dmg<=0)return;
   G.earth-=dmg;
@@ -1140,31 +1140,27 @@ function damageEarth(dmg){
     gameOver();
   }
 }
-// Player hits cost a LIFE, not Earth. Invulnerability blocks repeat hits.
-function loseLife(){
-  if(G.invuln>0)return; // protected window
-  // Starshield active = absorb the hit without spending a life
+// Player gets hit: invuln window prevents instant Earth drain from chained hits.
+// Starshield active absorbs the hit; otherwise Earth takes damage with feedback.
+function playerHit(dmg){
+  if(G.invuln>0)return;
   if(G.shieldActive>0){
-    G.shieldActive=Math.max(0,G.shieldActive-2);
+    G.shieldActive=Math.max(0,G.shieldActive-1.5);
     G.shake=Math.max(G.shake,6);
     burst(G.player.x,G.player.y,'#22f0ff',14,150);
     Audio.sShield();
+    G.invuln=.6;
     return;
   }
-  G.lives--;
-  G.invuln=1.5;
+  G.invuln=1.2;
   G.shake=Math.max(G.shake,14);
   G.multi=1;G.multiTimer=0;
-  burst(G.player.x,G.player.y,'#ff3a5c',26,260,1.1);
-  flash(G.player.x,G.player.y,42,'#ff3a5c');
+  burst(G.player.x,G.player.y,'#ff3a5c',24,260,1.0);
+  flash(G.player.x,G.player.y,40,'#ff3a5c');
   Audio.sExplode();
-  toastMsg('SHIP HIT! · '+Math.max(0,G.lives)+' LEFT',1200);
-  if(G.lives<=0){
-    gameOver();
-  }
+  toastMsg('SHIP HIT! · EARTH '+Math.max(0,Math.ceil(G.earth-dmg))+'%',1100);
+  damageEarth(dmg);
 }
-// Back-compat helper if any path still calls damagePlayer
-function damagePlayer(){loseLife()}
 
 // ---------- Shooting / Weapons ----------
 function shoot(){
@@ -1326,10 +1322,11 @@ function hud(){
   scoreEl.textContent=Math.floor(G.score).toLocaleString();
   multiEl.textContent='x'+G.multi.toFixed(G.multi>=2?1:0);
   multiEl.style.color=G.multi>=4?'#ff2bd6':G.multi>=2?'#ffd23a':'#7dff4d';
-  livesEl.innerHTML='LIVES '+'♥'.repeat(Math.max(0,G.lives));
-  // Earth shown via background — also as small wave subtitle? Use waveName + Earth%
+  const earthPct=Math.max(0,Math.ceil(G.earth));
+  livesEl.innerHTML='EARTH '+earthPct+'%';
+  livesEl.style.color=earthPct<=25?'#ff3a5c':earthPct<=55?'#ffd23a':'#22f0ff';
   if(G.waveDef && !G.boss){
-    waveNameEl.textContent=G.waveDef.name+' · '+Math.max(0,Math.ceil(G.earth))+'%';
+    waveNameEl.textContent=G.waveDef.name;
   }
   ssFill.style.width=G.shieldCharge+'%';
   if(ssPct)ssPct.textContent=Math.floor(G.shieldCharge)+'%';
@@ -1824,7 +1821,7 @@ function victoryScreen(){
 // ---------- Init / Reset ----------
 function resetGame(){
   G.score=0;G.kills=0;G.wave=0;G.multi=1;G.multiTimer=0;
-  G.earth=100;G.lives=3;G.time=0;G.spawnT=.5;G.fireCd=0;
+  G.earth=100;G.time=0;G.spawnT=.5;G.fireCd=0;
   G.rapid=0;G.shieldActive=0;G.shake=0;G.invuln=0;
   G.bullets=[];G.enemies=[];G.parts=[];G.fxs=[];
   G.shieldCharge=0;G.doomCharge=0;G.doomActive=0;
@@ -1863,9 +1860,9 @@ function startCynthia(){
   gameoverEl.style.display='none';
   G.isEndless=true;G.character='cynthia';
   resetGame();
-  // Cynthia: faster, less armor, side-switch enemies
+  // Cynthia: faster, less armor (Earth caps lower), side-switch enemies
   if(G.player){G.player.spd=470}
-  G.lives=2;
+  G.earth=80;
   Audio.play('main');
   showDialog('victory',()=>{startWave(0)});
   loop(performance.now());
