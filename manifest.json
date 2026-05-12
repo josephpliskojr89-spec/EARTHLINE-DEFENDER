@@ -1,0 +1,26 @@
+{
+  "name": "Earthline Defender",
+  "short_name": "Earthline",
+  "description": "Defend Earth. Look Good. Do It Again. — A neon arcade vertical rail shooter.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#02000a",
+  "theme_color": "#ff2bd6",
+  "categories": ["games", "action", "arcade"],
+  "icons": [
+    {
+      "src": "assets/img/moore_gunns.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/img/moore_gunns.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
