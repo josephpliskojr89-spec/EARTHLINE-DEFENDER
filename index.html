@@ -943,11 +943,10 @@ function update(dt){
           G.bullets.splice(j,1);
           break;
         }
-        if(e.type==='blackfriday' && e.armored && dmg<2){
-          // armor: bullets bounce off unless damage>=2
-          burst(b.x,b.y,'#ff3a5c',4,80);
-          G.bullets.splice(j,1);
-          break;
+        if(e.type==='blackfriday' && e.armored){
+          // Armored: damage reduced ~40% (min 1), spark on hit
+          dmg=Math.max(1,Math.ceil(dmg*.6));
+          burst(b.x,b.y,'#ffd23a',3,60);
         }
         e.hp-=dmg;
         G.bullets.splice(j,1);
