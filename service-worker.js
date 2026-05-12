@@ -1,6 +1,6 @@
 /* Earthline Defender — service worker
    Cache-first offline shell for the single-file game. */
-const CACHE='earthline-v4';
+const CACHE='earthline-v5';
 const ASSETS=[
   './',
   './index.html',
@@ -10,6 +10,10 @@ const ASSETS=[
   './assets/img/cynthia_cannon.png',
   './assets/img/doom_squadron.png',
   './assets/img/enemy_dossier.png',
+  './assets/img/ships/moore.png',
+  './assets/img/ships/cynthia.png',
+  './assets/img/ships/hank.png',
+  './assets/img/ships/tank.png',
   './assets/audio/Starshield_Loop.mp3',
   './assets/audio/Boss_Theme.mp3',
   './assets/audio/Doom_Squadron.mp3'

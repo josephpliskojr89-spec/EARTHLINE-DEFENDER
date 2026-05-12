@@ -315,7 +315,11 @@ const ASSET_LOAD=Promise.all([
   loadImg('starfield','assets/img/starfield.png'),
   loadImg('moore','assets/img/moore_gunns.png'),
   loadImg('cynthia','assets/img/cynthia_cannon.png'),
-  loadImg('doom','assets/img/doom_squadron.png')
+  loadImg('doom','assets/img/doom_squadron.png'),
+  loadImg('ship_moore','assets/img/ships/moore.png'),
+  loadImg('ship_cynthia','assets/img/ships/cynthia.png'),
+  loadImg('ship_hank','assets/img/ships/hank.png'),
+  loadImg('ship_tank','assets/img/ships/tank.png')
 ]);
 
 // ---------- Audio Manager ----------
@@ -1223,41 +1227,35 @@ function shoot(){
   G.fireCd=cd;
 }
 
-// Render Hank (left, magenta) + Tank (right, cyan) wingmen during Doom Squadron
+// Render Hank (left) + Tank (right) wingmen during Doom Squadron
 function drawWingmen(){
   if(G.doomActive<=0||!G.player)return;
   const p=G.player;
   const t=G.time;
-  // Hank — left
-  drawWing(p.x-44+Math.sin(t*4)*2,p.y+2+Math.sin(t*5)*1.5,'#ff2bd6','#9b3bff','H');
-  // Tank — right
-  drawWing(p.x+44+Math.cos(t*4)*2,p.y+2+Math.cos(t*5)*1.5,'#22f0ff','#1a6080','T');
+  drawWing(p.x-46+Math.sin(t*4)*2, p.y+4+Math.sin(t*5)*1.5, ASSETS.ship_hank, '#ff2bd6','#9b3bff','H');
+  drawWing(p.x+46+Math.cos(t*4)*2, p.y+4+Math.cos(t*5)*1.5, ASSETS.ship_tank, '#22f0ff','#1a6080','T');
 }
-function drawWing(x,y,c1,c2,initial){
+function drawWing(x,y,img,c1,c2,initial){
   ctx.save();ctx.translate(x,y);
-  // engine flame
-  ctx.beginPath();
-  ctx.moveTo(-6,11);ctx.lineTo(0,22+Math.sin(G.time*40)*3);ctx.lineTo(6,11);
-  ctx.fillStyle=c1;ctx.globalAlpha=.8;ctx.fill();ctx.globalAlpha=1;
-  // body
-  ctx.beginPath();
-  ctx.moveTo(0,-18);
-  ctx.lineTo(13,13);
-  ctx.lineTo(5,7);
-  ctx.lineTo(0,12);
-  ctx.lineTo(-5,7);
-  ctx.lineTo(-13,13);
-  ctx.closePath();
-  const g=ctx.createLinearGradient(0,-18,0,16);
-  g.addColorStop(0,'#fff');g.addColorStop(.55,c1);g.addColorStop(1,c2);
-  ctx.fillStyle=g;ctx.fill();
-  ctx.strokeStyle='rgba(255,255,255,.9)';ctx.lineWidth=1.2;ctx.stroke();
-  // cockpit
-  ctx.beginPath();ctx.ellipse(0,-5,3.2,6,0,0,TAU);ctx.fillStyle='#0a0014';ctx.fill();
-  ctx.strokeStyle=c1;ctx.lineWidth=1.2;ctx.stroke();
-  // initial badge
-  ctx.fillStyle='#fff';ctx.font='bold 8px Impact';ctx.textAlign='center';ctx.textBaseline='middle';
-  ctx.fillText(initial,0,5);
+  if(img){
+    const w=52,h=52;
+    ctx.drawImage(img,-w/2,-h/2,w,h);
+  }else{
+    ctx.beginPath();
+    ctx.moveTo(-6,11);ctx.lineTo(0,22+Math.sin(G.time*40)*3);ctx.lineTo(6,11);
+    ctx.fillStyle=c1;ctx.globalAlpha=.8;ctx.fill();ctx.globalAlpha=1;
+    ctx.beginPath();
+    ctx.moveTo(0,-18);ctx.lineTo(13,13);ctx.lineTo(5,7);ctx.lineTo(0,12);ctx.lineTo(-5,7);ctx.lineTo(-13,13);
+    ctx.closePath();
+    const g=ctx.createLinearGradient(0,-18,0,16);
+    g.addColorStop(0,'#fff');g.addColorStop(.55,c1);g.addColorStop(1,c2);
+    ctx.fillStyle=g;ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.9)';ctx.lineWidth=1.2;ctx.stroke();
+    ctx.beginPath();ctx.ellipse(0,-5,3.2,6,0,0,TAU);ctx.fillStyle='#0a0014';ctx.fill();
+    ctx.strokeStyle=c1;ctx.lineWidth=1.2;ctx.stroke();
+    ctx.fillStyle='#fff';ctx.font='bold 8px Impact';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(initial,0,5);
+  }
   ctx.restore();
 }
 
@@ -1411,35 +1409,40 @@ function drawShip(){
   // Invulnerability blink — skip every other ~80ms frame
   if(G.invuln>0 && Math.floor(G.time*12)%2===0)return;
   ctx.save();ctx.translate(p.x,p.y);
-  // engine flame
-  ctx.beginPath();
-  ctx.moveTo(-9,16);
-  ctx.lineTo(0,30+Math.sin(G.time*42)*5);
-  ctx.lineTo(9,16);
-  ctx.fillStyle=G.rapid>0?'#ffd23a':(G.doomActive>0?'#ff2bd6':isCyn?'#ff7adf':'#22f0ff');
-  ctx.globalAlpha=.85;ctx.fill();ctx.globalAlpha=1;
-  // body
-  ctx.beginPath();
-  ctx.moveTo(0,-26);
-  ctx.lineTo(18,18);
-  ctx.lineTo(7,10);
-  ctx.lineTo(0,16);
-  ctx.lineTo(-7,10);
-  ctx.lineTo(-18,18);
-  ctx.closePath();
-  const g=ctx.createLinearGradient(0,-26,0,22);
-  if(isCyn){g.addColorStop(0,'#fff');g.addColorStop(.5,'#ff7adf');g.addColorStop(1,'#7a2a8a')}
-  else{g.addColorStop(0,'#fff');g.addColorStop(.5,'#7dff4d');g.addColorStop(1,'#1a5a14')}
-  ctx.fillStyle=g;ctx.fill();
-  ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=1.5;ctx.stroke();
-  // green visor cockpit (signature)
-  ctx.beginPath();ctx.ellipse(0,-8,5,9,0,0,TAU);ctx.fillStyle='#071324';ctx.fill();
-  ctx.strokeStyle=isCyn?'#ff2bd6':'#7dff4d';ctx.lineWidth=1.5;ctx.stroke();
-  // mohawk antenna (Moore Gunns signature)
-  ctx.beginPath();ctx.moveTo(0,-26);ctx.lineTo(0,-34);ctx.strokeStyle='#ff2bd6';ctx.lineWidth=3;ctx.stroke();
-  // shield
+  const img=isCyn?ASSETS.ship_cynthia:ASSETS.ship_moore;
+  if(img){
+    // bob slightly with the engine flame rhythm baked into the sprite
+    const w=64,h=64;
+    // tint glow under the sprite for Doom Squadron / rapid fire feedback
+    if(G.doomActive>0||G.rapid>0){
+      ctx.save();
+      ctx.globalAlpha=.45+.2*Math.sin(G.time*12);
+      ctx.fillStyle=G.doomActive>0?'#ff2bd6':'#ffd23a';
+      ctx.beginPath();ctx.ellipse(0,18,w*.3,h*.2,0,0,TAU);ctx.fill();
+      ctx.restore();
+    }
+    ctx.drawImage(img,-w/2,-h/2,w,h);
+  }else{
+    // Procedural fallback if the sprite didn't load
+    ctx.beginPath();
+    ctx.moveTo(-9,16);ctx.lineTo(0,30+Math.sin(G.time*42)*5);ctx.lineTo(9,16);
+    ctx.fillStyle=G.rapid>0?'#ffd23a':(G.doomActive>0?'#ff2bd6':isCyn?'#ff7adf':'#22f0ff');
+    ctx.globalAlpha=.85;ctx.fill();ctx.globalAlpha=1;
+    ctx.beginPath();
+    ctx.moveTo(0,-26);ctx.lineTo(18,18);ctx.lineTo(7,10);ctx.lineTo(0,16);ctx.lineTo(-7,10);ctx.lineTo(-18,18);
+    ctx.closePath();
+    const g=ctx.createLinearGradient(0,-26,0,22);
+    if(isCyn){g.addColorStop(0,'#fff');g.addColorStop(.5,'#ff7adf');g.addColorStop(1,'#7a2a8a')}
+    else{g.addColorStop(0,'#fff');g.addColorStop(.5,'#7dff4d');g.addColorStop(1,'#1a5a14')}
+    ctx.fillStyle=g;ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=1.5;ctx.stroke();
+    ctx.beginPath();ctx.ellipse(0,-8,5,9,0,0,TAU);ctx.fillStyle='#071324';ctx.fill();
+    ctx.strokeStyle=isCyn?'#ff2bd6':'#7dff4d';ctx.lineWidth=1.5;ctx.stroke();
+    ctx.beginPath();ctx.moveTo(0,-26);ctx.lineTo(0,-34);ctx.strokeStyle='#ff2bd6';ctx.lineWidth=3;ctx.stroke();
+  }
+  // Shield ring stays on top
   if(G.shieldActive>0){
-    ctx.beginPath();ctx.arc(0,0,32+Math.sin(G.time*8)*2,0,TAU);
+    ctx.beginPath();ctx.arc(0,0,34+Math.sin(G.time*8)*2,0,TAU);
     ctx.strokeStyle='rgba(34,240,255,.85)';ctx.lineWidth=3;ctx.stroke();
   }
   ctx.restore();
