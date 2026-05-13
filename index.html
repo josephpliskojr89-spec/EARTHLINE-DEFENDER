@@ -398,11 +398,20 @@ const Audio={
       o.start();o.stop(ac.currentTime+dur);
     }catch(e){}
   },
-  sShoot(){this.beep('square',780,.06,.06,-300)},
-  sLaser(){this.beep('sawtooth',1200,.12,.07,-800)},
-  sMissile(){this.beep('triangle',420,.18,.09,400)},
-  sQuake(){this.beep('sawtooth',90,.4,.18,-60)},
-  sHit(){this.beep('square',220,.08,.07,-120)},
+  // Per-sound throttle: prevents the WebAudio context from being flooded
+  // when doom + rapid stack and the player is firing dozens of shots/sec.
+  _lastT:Object.create(null),
+  _throttle(name,ms){
+    const now=performance.now();
+    if((now-(this._lastT[name]||0))<ms)return false;
+    this._lastT[name]=now;
+    return true;
+  },
+  sShoot(){if(!this._throttle('shoot',55))return;this.beep('square',780,.06,.06,-300)},
+  sLaser(){if(!this._throttle('laser',55))return;this.beep('sawtooth',1200,.12,.07,-800)},
+  sMissile(){if(!this._throttle('missile',75))return;this.beep('triangle',420,.18,.09,400)},
+  sQuake(){if(!this._throttle('quake',120))return;this.beep('sawtooth',90,.4,.18,-60)},
+  sHit(){if(!this._throttle('hit',40))return;this.beep('square',220,.08,.07,-120)},
   sExplode(){this.beep('sawtooth',180,.28,.13,-150);setTimeout(()=>this.beep('square',90,.2,.1,-60),60)},
   sPower(){this.beep('triangle',880,.18,.1,400);setTimeout(()=>this.beep('triangle',1320,.18,.1,400),80)},
   sYeet(){this.beep('sawtooth',60,.6,.2,800);setTimeout(()=>this.beep('square',1200,.4,.15,-1000),200)},
@@ -1366,7 +1375,15 @@ function shoot(){
     G.bullets.push({x:p.x-wx,y:p.y-8,vx:0,vy:-680,r:4,friend:true,dmg:1,trail:'#ff2bd6'});
     G.bullets.push({x:p.x+wx,y:p.y-8,vx:0,vy:-680,r:4,friend:true,dmg:1,trail:'#22f0ff'});
   }
-  G.fireCd=cd;
+  // Floor: doom + rapid stacking can otherwise drive cd into single-frame
+  // territory (~.024s) and flood bullet/audio allocations until the phone
+  // GC chokes. 60ms = ~16 shots/sec is plenty for an arcade feel.
+  G.fireCd=Math.max(.06,cd);
+  // Defensive cap on total bullets in flight — protects against pathological
+  // accumulation if anything else widens the firehose later.
+  if(G.bullets.length>240){
+    G.bullets.splice(0, G.bullets.length-240);
+  }
 }
 
 // Render Hank (left) + Tank (right) wingmen during Doom Squadron
