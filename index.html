@@ -51,8 +51,9 @@
   .actionBtn .icon{font-size:20px;display:block;margin-bottom:2px}
   .actionBtn:disabled{opacity:.55;cursor:default}
   .actionBtn .cd{position:absolute;inset:0;border-radius:50%;background:conic-gradient(rgba(0,0,0,.55) 0deg,rgba(0,0,0,.55) 360deg);pointer-events:none}
-  .actionBtn .timer{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:10px;letter-spacing:.18em;color:#fff;text-shadow:0 0 6px #000;background:rgba(0,0,0,.6);padding:1px 6px;border-radius:6px;display:none}
+  .actionBtn .timer{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);font-size:28px;letter-spacing:.06em;color:var(--yellow);text-shadow:0 0 14px var(--yellow),0 0 22px var(--yellow),0 2px 0 #000;font-weight:900;text-align:center;pointer-events:none;display:none;line-height:1}
   .actionBtn.active .timer{display:block}
+  .actionBtn.active > span{opacity:.15;transition:opacity .2s}
 
   #yeetBtn{border:3px solid var(--green);color:var(--green);text-shadow:0 0 8px var(--green);box-shadow:0 0 18px rgba(125,255,77,.35),inset 0 0 14px rgba(125,255,77,.2)}
   #yeetBtn .icon{text-shadow:0 0 10px var(--green)}
@@ -341,7 +342,13 @@ const Audio={
     if(this.current===name && !el.paused) return;
     try{
       for(const o of elements){if(o!==el)o.pause()}
-      el.src=src;
+      // Only reload the media element if the source actually changed —
+      // setting `el.src` to the same URL forces a reload that can hitch
+      // playback on mobile (this is the Doom→main transition "freeze").
+      if(el._loadedSrc !== src){
+        el.src=src;
+        el._loadedSrc=src;
+      }
       el.volume=this.muted?0:this.vol;
       el.muted=this.muted;
       await el.play();
@@ -351,6 +358,16 @@ const Audio={
       // Graceful fallback: track missing or autoplay blocked
       console.warn('Audio play failed for',name,e.message);
     }
+  },
+  // Eagerly attach src + trigger metadata load without playing. Lets us
+  // pre-warm the boss/doom tracks after the user's first gesture so the
+  // first real switch is instant.
+  preload(name){
+    const src=this.tracks[name];if(!src)return;
+    const el=this._elFor(name);
+    if(el._loadedSrc===src)return;
+    el.src=src;el._loadedSrc=src;
+    try{el.load()}catch(e){}
   },
   startDoom(){this.preDoom=this.current||'main';this.play('doom')},
   endDoom(){const t=this.preDoom||'main';this.preDoom=null;this.play(t)},
@@ -855,8 +872,13 @@ function update(dt){
   yeetCd.style.background=yeetUsable?'conic-gradient(transparent 0deg,transparent 360deg)':'conic-gradient(rgba(0,0,0,.55) 0deg,rgba(0,0,0,.55) 360deg)';
   yeetBtn.disabled=!yeetUsable;
   if(yeetUsable){yeetBtn.classList.add('ready')}else{yeetBtn.classList.remove('ready')}
-  // Doom button visual
-  doomCd.style.background=`conic-gradient(rgba(0,0,0,.55) ${(1-G.doomCharge/100)*360}deg,transparent 0)`;
+  // Doom button visual: draining "runner" ring while active, charge ring when idle
+  if(G.doomActive>0){
+    const frac=Math.max(0,G.doomActive/30);
+    doomCd.style.background=`conic-gradient(rgba(255,210,58,.85) ${frac*360}deg,rgba(0,0,0,.35) 0)`;
+  }else{
+    doomCd.style.background=`conic-gradient(rgba(0,0,0,.55) ${(1-G.doomCharge/100)*360}deg,transparent 0)`;
+  }
   const doomReady=G.doomCharge>=100 && G.doomActive<=0;
   doomBtn.disabled=!doomReady;
   if(doomReady){doomBtn.classList.add('ready')}else{doomBtn.classList.remove('ready')}
@@ -2098,6 +2120,9 @@ function dismissSplash(){
   if(!splashEl||splashEl.classList.contains('fadeOut'))return;
   // Unlock audio context on the user-gesture tap so the title music can start later
   Audio.ensureAC();
+  // Pre-warm the tracks we'll need on first transition so audio swaps don't hitch
+  Audio.preload('boss');
+  Audio.preload('doom');
   splashEl.classList.add('fadeOut');
   setTimeout(()=>{if(splashEl.parentNode)splashEl.parentNode.removeChild(splashEl)},400);
 }
