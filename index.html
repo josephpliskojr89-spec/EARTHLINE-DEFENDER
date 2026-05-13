@@ -569,23 +569,33 @@ function resize(){
 }
 
 // ---------- Particle / FX ----------
+// Soft caps so a cascade of bursts during boss + AOE chaos can't balloon
+// the arrays and stress per-frame filter/draw work.
+const PARTS_CAP=600, FXS_CAP=64;
 function burst(x,y,color,n=12,pow=140,life=.7){
-  for(let i=0;i<n;i++){
+  // Skip new particles entirely if we're already saturated
+  if(G.parts.length>=PARTS_CAP)return;
+  const room=PARTS_CAP-G.parts.length;
+  const count=Math.min(n,room);
+  for(let i=0;i<count;i++){
     const a=rand(0,TAU),s=rand(pow*.25,pow);
     G.parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,r:rand(1.5,4.2),life:rand(life*.4,life),max:life,color});
   }
 }
 function trail(x,y,color){
+  if(G.parts.length>=PARTS_CAP)return;
   G.parts.push({x:x+rand(-3,3),y:y+rand(-3,3),vx:rand(-12,12),vy:rand(20,80),r:rand(1.6,3.4),life:.4,max:.4,color});
 }
 function flash(x,y,r,color){
+  if(G.fxs.length>=FXS_CAP)G.fxs.shift();
   G.fxs.push({type:'ring',x,y,r0:r*.4,r1:r*1.6,life:.35,max:.35,color});
 }
-function shockwave(x,y){G.fxs.push({type:'ring',x,y,r0:10,r1:Math.max(W,H)*.9,life:.45,max:.45,color:'#fff'})}
+function shockwave(x,y){if(G.fxs.length>=FXS_CAP)G.fxs.shift();G.fxs.push({type:'ring',x,y,r0:10,r1:Math.max(W,H)*.9,life:.45,max:.45,color:'#fff'})}
 
 // Earthquake Bomb AOE: splashes nearby enemies and boss after a bullet impact.
 function applyAOE(x,y,r,dmg,excludeEnemyIdx,excludeBoss){
   if(!r||!dmg)return;
+  if(G.fxs.length>=FXS_CAP)G.fxs.shift();
   G.fxs.push({type:'ring',x,y,r0:r*.2,r1:r,life:.4,max:.4,color:'#ffd23a'});
   G.shake=Math.max(G.shake,7);
   Audio.sQuake();
@@ -1463,7 +1473,7 @@ function hud(){
   multiEl.textContent='x'+G.multi.toFixed(G.multi>=2?1:0);
   multiEl.style.color=G.multi>=4?'#ff2bd6':G.multi>=2?'#ffd23a':'#7dff4d';
   const earthPct=Math.max(0,Math.ceil(G.earth));
-  livesEl.innerHTML='EARTH '+earthPct+'%';
+  livesEl.textContent='EARTH '+earthPct+'%';
   livesEl.style.color=earthPct<=25?'#ff3a5c':earthPct<=55?'#ffd23a':'#22f0ff';
   if(G.waveDef && !G.boss){
     waveNameEl.textContent=G.waveDef.name;
@@ -2020,8 +2030,7 @@ function startCampaign(){
   resetGame();
   Audio.play('main');
   showDialog('intro',()=>{startStage(0)});
-  if(!last)last=performance.now();
-  loop(performance.now());
+  startLoop();
 }
 function startEndless(){
   titleEl.style.display='none';
@@ -2030,7 +2039,7 @@ function startEndless(){
   resetGame();
   Audio.play('main');
   startStage(0);
-  loop(performance.now());
+  startLoop();
 }
 function startCynthia(){
   if(!cynthiaUnlocked)return;
@@ -2043,7 +2052,7 @@ function startCynthia(){
   G.earth=80;
   Audio.play('main');
   showDialog('victory',()=>{startStage(0)});
-  loop(performance.now());
+  startLoop();
 }
 
 // Cynthia infiltration: occasionally flip enemy bullets to friend
@@ -2065,15 +2074,28 @@ function cynthiaTick(dt){
 }
 
 // ---------- Main loop ----------
+let _loopAlive=false;
 function loop(t){
-  if(state===STATE.OVER||state===STATE.TITLE)return;
+  if(state===STATE.OVER||state===STATE.TITLE){_loopAlive=false;return}
   const dt=Math.min(.033,(t-last)/1000||.016);
   last=t;
-  if(state!==STATE.DIALOG){
-    update(dt);
-    cynthiaTick(dt);
+  // Defensive: never let an exception in update/draw kill the rAF chain.
+  // A silent freeze is the worst kind. Surface it in the console and keep going.
+  try{
+    if(state!==STATE.DIALOG){
+      update(dt);
+      cynthiaTick(dt);
+    }
+    draw();
+  }catch(e){
+    console.error('[earthline] frame error:',e);
   }
-  draw();
+  requestAnimationFrame(loop);
+}
+function startLoop(){
+  if(_loopAlive)return;
+  _loopAlive=true;
+  last=performance.now();
   requestAnimationFrame(loop);
 }
 
