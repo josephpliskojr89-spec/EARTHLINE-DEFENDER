@@ -288,8 +288,8 @@ const doomBgm=document.getElementById('doomBgm');
 // ---------- Constants ----------
 const TAU=Math.PI*2;
 const STATE={TITLE:'title',PLAYING:'playing',BOSS:'boss',DIALOG:'dialog',OVER:'over',CLEAR:'clear'};
-const WEAPONS=['pew','laser','missiles','quake'];
-const WEAPON_NAMES={pew:'PEW CANNON',laser:'LASER LANCE',missiles:'SHREDDER MISSILES',quake:'EARTHQUAKE BOMB'};
+const WEAPONS=['pew','laser','missiles','pyro'];
+const WEAPON_NAMES={pew:'PEW CANNON',laser:'LASER LANCE',missiles:'SHREDDER MISSILES',pyro:'PYRO PULSE',quake:'EARTHQUAKE BOMB'};
 const PORTRAITS={
   moore:{img:'assets/img/moore_gunns.png',pos:'45% 18%'},
   hank:{img:'assets/img/doom_squadron.png',pos:'25% 35%'},
@@ -411,6 +411,8 @@ const Audio={
   sLaser(){if(!this._throttle('laser',55))return;this.beep('sawtooth',1200,.12,.07,-800)},
   sMissile(){if(!this._throttle('missile',75))return;this.beep('triangle',420,.18,.09,400)},
   sQuake(){if(!this._throttle('quake',120))return;this.beep('sawtooth',90,.4,.18,-60)},
+  sPyro(){if(!this._throttle('pyro',60))return;this.beep('sawtooth',280,.16,.11,-160);setTimeout(()=>this.beep('triangle',180,.14,.07,-90),35)},
+  sChain(){if(!this._throttle('chain',55))return;this.beep('triangle',360,.09,.06,-160)},
   sHit(){if(!this._throttle('hit',40))return;this.beep('square',220,.08,.07,-120)},
   sExplode(){this.beep('sawtooth',180,.28,.13,-150);setTimeout(()=>this.beep('square',90,.2,.1,-60),60)},
   sPower(){this.beep('triangle',880,.18,.1,400);setTimeout(()=>this.beep('triangle',1320,.18,.1,400),80)},
@@ -447,6 +449,7 @@ const G={
   yeetAvailable:true, // once-per-stage, refreshes on new stage, locked during boss
   invuln:0,       // post-hit invulnerability seconds
   weapon:'pew', weaponLv:1, weaponStep:0, // 0..11 — deterministic progression index
+  bombShots:0, // Earthquake Bomb temporary shots remaining (rare pickup)
   boss:null, bossPhase:1,
   // Stage / wave tracking
   stage:1, stageDef:null,
@@ -592,14 +595,23 @@ function flash(x,y,r,color){
 }
 function shockwave(x,y){if(G.fxs.length>=FXS_CAP)G.fxs.shift();G.fxs.push({type:'ring',x,y,r0:10,r1:Math.max(W,H)*.9,life:.45,max:.45,color:'#fff'})}
 
-// Earthquake Bomb AOE: splashes nearby enemies and boss after a bullet impact.
-function applyAOE(x,y,r,dmg,excludeEnemyIdx,excludeBoss){
+// Splash damage helper used by Earthquake Bomb pickup and Pyro Pulse weapon.
+//   color    — ring/spark hue (default yellow for quake; pyro passes orange)
+//   chainLv  — when > 0, every enemy killed by the splash queues a smaller
+//              follow-up explosion at its position (bounded recursion).
+//   isChain  — true for chained calls; uses a quieter SFX so the audio
+//              context isn't slammed by a cascade.
+function applyAOE(x,y,r,dmg,excludeEnemyIdx,excludeBoss,chainLv,color,isChain){
   if(!r||!dmg)return;
+  const ringColor=color||'#ffd23a';
   if(G.fxs.length>=FXS_CAP)G.fxs.shift();
-  G.fxs.push({type:'ring',x,y,r0:r*.2,r1:r,life:.4,max:.4,color:'#ffd23a'});
-  G.shake=Math.max(G.shake,7);
-  Audio.sQuake();
+  G.fxs.push({type:'ring',x,y,r0:r*.2,r1:r,life:.4,max:.4,color:ringColor});
+  G.shake=Math.max(G.shake,isChain?3:7);
+  if(isChain) Audio.sChain(); else Audio.sQuake();
   const r2=r*r;
+  // Defer chain spawns so we don't recurse mid-loop with stale indices
+  // (killEnemy splices G.enemies and would shift k).
+  const chains=[];
   for(let k=G.enemies.length-1;k>=0;k--){
     if(k===excludeEnemyIdx)continue;
     const e=G.enemies[k];
@@ -608,18 +620,28 @@ function applyAOE(x,y,r,dmg,excludeEnemyIdx,excludeBoss){
     const dx=e.x-x,dy=e.y-y;
     if(dx*dx+dy*dy<=r2){
       e.hp-=dmg;
-      burst(e.x,e.y,'#ffd23a',5,150);
-      if(e.hp<=0){e._dead=true;killEnemy(e,k)}
+      burst(e.x,e.y,ringColor,5,150);
+      if(e.hp<=0){
+        e._dead=true;
+        if(chainLv>0){
+          chains.push({x:e.x,y:e.y,r:r*.65,dmg:Math.max(1,Math.ceil(dmg*.7)),chainLv:chainLv-1,color:ringColor});
+        }
+        killEnemy(e,k);
+      }
     }
   }
   if(G.boss && !excludeBoss){
     const dx=G.boss.x-x,dy=G.boss.y-y;
     if(dx*dx+dy*dy<=(r+G.boss.r*.5)**2){
       G.boss.hp-=dmg;
-      flash(G.boss.x,G.boss.y,G.boss.r+10,'#ffd23a');
+      flash(G.boss.x,G.boss.y,G.boss.r+10,ringColor);
       bossBarFill.style.width=Math.max(0,G.boss.hp/G.boss.maxHp*100)+'%';
       if(G.boss.hp<=0){endBoss();onBossDefeated()}
     }
+  }
+  // Process queued chain spawns AFTER the loop (indices are clean now)
+  for(const c of chains){
+    applyAOE(c.x,c.y,c.r,c.dmg,-1,false,c.chainLv,c.color,true);
   }
 }
 
@@ -688,13 +710,37 @@ function forceWeaponDrop(x,y){
   });
 }
 
+// Earthquake Bomb pickup: rare temporary super-weapon. Bigger sprite, slower
+// fall, distinctive orange — feels like a "lucky" find.
+function spawnQuakeBomb(x,y){
+  G.enemies.push({
+    type:'power',kind:'quakebomb',x,y,vx:0,vy:75,r:18,hp:1,maxHp:1,rot:0,spin:2,
+    color:'#ff7a3a',pulse:0,score:0,dmg:0
+  });
+}
+// Roll for an Earthquake Bomb drop on a kill. Strict gates: never during boss
+// fights, never if one is already on screen (single-instance). Uses each
+// enemy's BASE hp from ENEMY_DEFS so per-stage hp scaling doesn't muddy the
+// elite/tough thresholds.
+function rollQuakeBombDrop(e){
+  if(G.boss)return false;
+  for(const en of G.enemies){if(en.type==='power' && en.kind==='quakebomb')return false}
+  const def=ENEMY_DEFS[e.type];if(!def)return false;
+  const baseHp=def.hp;
+  let chance=0;
+  if(baseHp>=8) chance=.04;       // blackfriday(8) / ufo(10) / gravturret(12)
+  else if(baseHp>=4) chance=.012; // swarmer(5) / leech(4)
+  else return false;
+  return Math.random()<chance;
+}
+
 // Deterministic 12-step weapon progression:
-// 0..2 pew L1-3, 3..5 laser L1-3, 6..8 missiles L1-3, 9..11 quake L1-3.
+// 0..2 pew L1-3, 3..5 laser L1-3, 6..8 missiles L1-3, 9..11 pyro L1-3.
 const WEAPON_SEQUENCE=[
   ['pew',1],['pew',2],['pew',3],
   ['laser',1],['laser',2],['laser',3],
   ['missiles',1],['missiles',2],['missiles',3],
-  ['quake',1],['quake',2],['quake',3]
+  ['pyro',1],['pyro',2],['pyro',3]
 ];
 function applyWeaponStep(s){
   const [w,lv]=WEAPON_SEQUENCE[Math.min(WEAPON_SEQUENCE.length-1,Math.max(0,s))];
@@ -706,6 +752,12 @@ function collectPower(k){
   if(k==='repair'){G.earth=clamp(G.earth+15,0,100);toastMsg('EARTH PATCHED +15')}
   else if(k==='rapid'){G.rapid=8;toastMsg('RAPID FIRE')}
   else if(k==='shield'){G.shieldActive=8;toastMsg('SHIELD ACTIVE')}
+  else if(k==='quakebomb'){
+    // Refresh, don't stack — each pickup grants exactly 5 shots.
+    G.bombShots=5;
+    toastMsg('EARTHQUAKE BOMB · 5 SHOTS',1600);
+    Audio.sExplode();
+  }
   else if(k==='weapon'){
     if(G.weaponStep>=WEAPON_SEQUENCE.length-1){
       // Already at max — extra pickups award bonus score instead of cycling
@@ -951,7 +1003,7 @@ function update(dt){
       if(t && !t._dead){
         const ang=Math.atan2(t.y-b.y,t.x-b.x);
         const ca=Math.atan2(b.vy,b.vx);
-        const turn=2.2*dt;
+        const turn=1.6*dt;
         let na=ca + clamp(((ang-ca+Math.PI*3)%TAU)-Math.PI,-turn,turn);
         const sp=Math.hypot(b.vx,b.vy);
         b.vx=Math.cos(na)*sp;b.vy=Math.sin(na)*sp;
@@ -1102,7 +1154,7 @@ function update(dt){
           burst(b.x,b.y,'#ffd23a',3,60);
         }
         e.hp-=dmg;
-        const aoe=b.aoe;const ax=b.x,ay=b.y,aR=b.aoeR,aD=b.aoeDmg;
+        const aoe=b.aoe;const ax=b.x,ay=b.y,aR=b.aoeR,aD=b.aoeDmg,aChain=b.chainLv|0,aColor=b.aoeColor;
         G.bullets.splice(j,1);
         burst(b.x,b.y,e.color,4,70);
         Audio.sHit();
@@ -1110,7 +1162,7 @@ function update(dt){
           e._dead=true;
           killEnemy(e,i);
         }
-        if(aoe) applyAOE(ax,ay,aR,aD,i,false);
+        if(aoe) applyAOE(ax,ay,aR,aD,i,false,aChain,aColor,false);
         break;
       }
     }
@@ -1123,7 +1175,7 @@ function update(dt){
       if(d2(b,G.boss)<(b.r+G.boss.r*.7)**2){
         const dmg=b.dmg||1;
         G.boss.hp-=dmg;
-        const aoe=b.aoe;const ax=b.x,ay=b.y,aR=b.aoeR,aD=b.aoeDmg;
+        const aoe=b.aoe;const ax=b.x,ay=b.y,aR=b.aoeR,aD=b.aoeDmg,aChain=b.chainLv|0,aColor=b.aoeColor;
         G.bullets.splice(j,1);
         burst(b.x,b.y,G.boss.color,4,70);
         Audio.sHit();
@@ -1132,7 +1184,7 @@ function update(dt){
           G.doomCharge=Math.min(100,G.doomCharge+dmg*.2);
         }
         bossBarFill.style.width=Math.max(0,G.boss.hp/G.boss.maxHp*100)+'%';
-        if(aoe) applyAOE(ax,ay,aR,aD,-1,true);
+        if(aoe) applyAOE(ax,ay,aR,aD,-1,true,aChain,aColor,false);
         // phase triggers
         for(const ph of G.boss.phases){
           if(G.boss.hp/G.boss.maxHp <= ph && !G.boss._tr?.has(ph)){
@@ -1262,6 +1314,10 @@ function killEnemy(e,i){
     G.weaponDropsThisStage++;
     forceWeaponDrop(e.x,e.y);
   }
+  // Earthquake Bomb (rare super) — never during boss, single instance only
+  if(rollQuakeBombDrop(e)){
+    spawnQuakeBomb(e.x,e.y);
+  }
   // explosion variations
   if(e.type==='steroid'){
     // explodes, releases pink plasma bullets in 6 directions
@@ -1326,12 +1382,25 @@ function playerHit(dmg){
 function shoot(){
   if(G.fireCd>0)return;
   const p=G.player;
+
+  // ── Earthquake Bomb (rare temporary pickup) overrides the equipped weapon.
+  // Fixed cd, ignores rapid/doom multipliers, and skips wingmen so the screen
+  // isn't muddied by little pew bullets next to the catastrophic blast.
+  if(G.bombShots>0){
+    fireBombShot(p);
+    G.bombShots--;
+    G.fireCd=.5;
+    if(G.bombShots<=0)toastMsg('BOMB DEPLETED',1100);
+    return;
+  }
+
   const rapid=G.rapid>0;
   const doom=G.doomActive>0;
   const lv=G.weaponLv;
   let cd;
   if(G.weapon==='pew'){
-    cd=rapid?.06:.14;
+    // Slightly slower than before so it's a starter, not a dominant gun.
+    cd=rapid?.07:.16;
     if(doom)cd*=.4;
     G.bullets.push({x:p.x,y:p.y-22,vx:0,vy:-680,r:4,friend:true,dmg:1});
     if(rapid||lv>=2){
@@ -1346,16 +1415,19 @@ function shoot(){
   }else if(G.weapon==='laser'){
     cd=rapid?.08:.18;
     if(doom)cd*=.4;
-    G.bullets.push({x:p.x,y:p.y-24,vx:0,vy:-900,r:3,friend:true,dmg:2+lv,trail:'#22f0ff'});
+    // Damage trimmed by 1 across the board; behavior + feel unchanged.
+    G.bullets.push({x:p.x,y:p.y-24,vx:0,vy:-900,r:3,friend:true,dmg:1+lv,trail:'#22f0ff'});
     if(lv>=2){
-      G.bullets.push({x:p.x-8,y:p.y-20,vx:0,vy:-880,r:2.5,friend:true,dmg:1+lv,trail:'#22f0ff'});
-      G.bullets.push({x:p.x+8,y:p.y-20,vx:0,vy:-880,r:2.5,friend:true,dmg:1+lv,trail:'#22f0ff'});
+      G.bullets.push({x:p.x-8,y:p.y-20,vx:0,vy:-880,r:2.5,friend:true,dmg:lv,trail:'#22f0ff'});
+      G.bullets.push({x:p.x+8,y:p.y-20,vx:0,vy:-880,r:2.5,friend:true,dmg:lv,trail:'#22f0ff'});
     }
     Audio.sLaser();
   }else if(G.weapon==='missiles'){
     cd=rapid?.18:.32;
     if(doom)cd*=.4;
-    // find nearest enemy targets
+    // Find nearest enemy targets. Per-shot dmg dropped to 1 and turn rate
+    // (in the bullet update loop) lowered from 2.2 to 1.6 — still fun, less
+    // dominant.
     const targets=[...G.enemies.filter(e=>e.type!=='power'),...(G.boss?[G.boss]:[])];
     targets.sort((a,b)=>d2(p,a)-d2(p,b));
     const fires=lv+1;
@@ -1363,20 +1435,28 @@ function shoot(){
       const t=targets[i%Math.max(1,targets.length)];
       const ang=t?Math.atan2(t.y-p.y,t.x-p.x):(-Math.PI/2);
       const sp=520;
-      G.bullets.push({x:p.x+(i-fires/2)*8,y:p.y-14,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,r:5,friend:true,dmg:2,trail:'#ff7a3a',homing:true,target:t,life:2.5});
+      G.bullets.push({x:p.x+(i-fires/2)*8,y:p.y-14,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,r:5,friend:true,dmg:1,trail:'#ff7a3a',homing:true,target:t,life:2.5});
     }
     Audio.sMissile();
-  }else if(G.weapon==='quake'){
-    // Slow but catastrophic. Every impact explodes with AOE splash.
-    cd=rapid?.5:.85;
+  }else if(G.weapon==='pyro'){
+    // Final progression weapon. Neon plasma bolts that always splash on
+    // impact. L3 carries chain:1 — kills splashed by the blast spawn a
+    // smaller secondary pulse for crowd-clear chaos.
+    const cdN=[.35,.30,.25][lv-1];
+    const cdR=[.25,.20,.18][lv-1];
+    cd=rapid?cdR:cdN;
     if(doom)cd*=.5;
-    // base 8/11/14 direct damage by level + AOE radius scales with level
-    const baseDmg=5+lv*3;
-    const aoeR=68+lv*16; // 84 / 100 / 116 px splash
-    const aoeDmg=Math.max(2,Math.floor(baseDmg*.5));
-    G.bullets.push({x:p.x,y:p.y-24,vx:0,vy:-540,r:11,friend:true,dmg:baseDmg,trail:'#ffd23a',life:2.2,aoe:true,aoeR,aoeDmg});
-    G.shake=Math.max(G.shake,4);
-    Audio.sQuake();
+    const baseDmg=2+lv;            // 3 / 4 / 5
+    const aoeR=50+lv*22;           // 72 / 94 / 116 px
+    const aoeDmg=Math.max(2,Math.floor(baseDmg*.7));  // 2 / 2 / 3
+    const chainLv=lv>=3?1:0;
+    G.bullets.push({
+      x:p.x,y:p.y-22,vx:0,vy:-560,r:8,
+      friend:true,dmg:baseDmg,trail:'#ff5a3a',life:1.8,
+      aoe:true,aoeR,aoeDmg,chainLv,aoeColor:'#ff5a3a'
+    });
+    G.shake=Math.max(G.shake,3);
+    Audio.sPyro();
   }else{cd=.14}
 
   // Doom Squadron wingmen flank the player and fire in sync
@@ -1386,14 +1466,24 @@ function shoot(){
     G.bullets.push({x:p.x+wx,y:p.y-8,vx:0,vy:-680,r:4,friend:true,dmg:1,trail:'#22f0ff'});
   }
   // Floor: doom + rapid stacking can otherwise drive cd into single-frame
-  // territory (~.024s) and flood bullet/audio allocations until the phone
-  // GC chokes. 60ms = ~16 shots/sec is plenty for an arcade feel.
+  // territory and flood bullet/audio allocations until the phone GC chokes.
   G.fireCd=Math.max(.06,cd);
-  // Defensive cap on total bullets in flight — protects against pathological
-  // accumulation if anything else widens the firehose later.
   if(G.bullets.length>240){
     G.bullets.splice(0, G.bullets.length-240);
   }
+}
+
+// Single Earthquake Bomb shot — massive direct damage, huge AOE, big shake.
+// Uses the standard applyAOE pipeline via the bullet's aoe/aoeR/aoeDmg fields.
+function fireBombShot(p){
+  G.bullets.push({
+    x:p.x,y:p.y-26,vx:0,vy:-540,r:14,
+    friend:true,dmg:25,trail:'#ffd23a',life:2.4,
+    aoe:true,aoeR:200,aoeDmg:18,chainLv:0,aoeColor:'#ffd23a'
+  });
+  G.shake=Math.max(G.shake,12);
+  Audio.sQuake();
+  Audio.sExplode();
 }
 
 // Render Hank (left) + Tank (right) wingmen during Doom Squadron
@@ -1478,6 +1568,19 @@ function hud(){
   if(G.waveDef && !G.boss){
     waveNameEl.textContent=G.waveDef.name;
   }
+  // Weapon indicator: show the temp Earthquake Bomb counter when active,
+  // otherwise the equipped progression weapon. Skip the DOM write if the
+  // text hasn't changed to keep this hot-path cheap.
+  let want, wantColor;
+  if(G.bombShots>0){
+    want='⚠ EARTHQUAKE BOMB · '+G.bombShots+'/5';
+    wantColor='#ff7a3a';
+  }else{
+    want=WEAPON_NAMES[G.weapon]+(G.weaponLv>1?' LV'+G.weaponLv:'');
+    wantColor='';
+  }
+  if(weaponInd.textContent!==want)weaponInd.textContent=want;
+  if(weaponInd.style.color!==wantColor)weaponInd.style.color=wantColor;
 }
 
 // ---------- Drawing ----------
@@ -1803,13 +1906,22 @@ function drawOctopus(r,color,pulse){
 
 function drawPower(e){
   ctx.save();ctx.translate(e.x,e.y);ctx.rotate(-e.rot);
+  // Aggressive double-pulse halo for the rare bomb pickup so the player
+  // immediately spots one onscreen.
+  const isBomb=e.kind==='quakebomb';
+  if(isBomb){
+    ctx.beginPath();ctx.arc(0,0,e.r+8+Math.sin(G.time*9)*4,0,TAU);
+    ctx.fillStyle=e.color;ctx.globalAlpha=.16;ctx.fill();ctx.globalAlpha=1;
+  }
   ctx.beginPath();ctx.arc(0,0,e.r+Math.sin(G.time*7)*2,0,TAU);
   ctx.fillStyle=e.color;ctx.globalAlpha=.18;ctx.fill();ctx.globalAlpha=1;
   ctx.beginPath();ctx.arc(0,0,e.r,0,TAU);
   ctx.fillStyle='#10172f';ctx.fill();
-  ctx.strokeStyle=e.color;ctx.lineWidth=3;ctx.stroke();
-  ctx.fillStyle=e.color;ctx.font='bold 14px Impact';ctx.textAlign='center';ctx.textBaseline='middle';
-  const c={repair:'+',rapid:'R',shield:'S',weapon:'W'}[e.kind]||'?';
+  ctx.strokeStyle=e.color;ctx.lineWidth=isBomb?4:3;ctx.stroke();
+  ctx.fillStyle=e.color;
+  ctx.font='bold '+(isBomb?18:14)+'px Impact';
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  const c={repair:'+',rapid:'R',shield:'S',weapon:'W',quakebomb:'!'}[e.kind]||'?';
   ctx.fillText(c,0,1);
   ctx.restore();
 }
@@ -2014,7 +2126,7 @@ function resetGame(){
   G.yeetAvailable=true;
   yeetBtn.disabled=false;yeetBtn.classList.add('ready');
   doomBtn.disabled=true;doomBtn.classList.remove('ready');doomBtn.classList.remove('active');
-  G.weapon='pew';G.weaponLv=1;G.weaponStep=0;
+  G.weapon='pew';G.weaponLv=1;G.weaponStep=0;G.bombShots=0;
   G.stage=1;G.stageDef=null;G.waveInStage=0;
   G.weaponDropsThisStage=0;G.killsThisStage=0;
   G.boss=null;bossBarWrap.style.display='none';
