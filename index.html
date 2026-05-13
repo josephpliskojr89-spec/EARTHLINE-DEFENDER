@@ -28,30 +28,38 @@
 
   /* ============ HUD ============ */
   #hud{position:fixed;inset:0;pointer-events:none;z-index:5;display:grid;grid-template-rows:auto auto 1fr auto;font-weight:900;overflow:hidden}
-  #hudTop{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:8px;padding:calc(8px + env(safe-area-inset-top,0px)) 12px 6px;text-shadow:0 0 8px #000,0 2px 0 #000;min-width:0}
-  /* min-width:0 + overflow:hidden so no inner content can ever blow out
-     the 3-column grid and shove the right cell off-screen. */
-  .hCell{padding:6px 10px;border:2px solid rgba(255,43,214,.55);background:linear-gradient(180deg,rgba(10,0,30,.85),rgba(20,0,40,.6));border-radius:10px;box-shadow:0 0 12px rgba(255,43,214,.25),inset 0 0 16px rgba(34,240,255,.08);min-width:0;overflow:hidden}
-  .hCell .lbl{font-size:9px;letter-spacing:.18em;color:var(--cyan);text-transform:uppercase;font-weight:700}
-  .hCell .val{font-size:18px;line-height:1;color:#fff;text-shadow:0 0 8px var(--magenta),0 0 14px var(--magenta)}
-  .hCell.right{text-align:right}
-  .hCell .small{font-size:11px;color:var(--green);letter-spacing:.1em}
-  #hudCenter{display:flex;align-items:center;justify-content:center;gap:8px;flex-direction:column}
-  #waveBanner{display:flex;align-items:center;gap:8px;padding:4px 10px;background:linear-gradient(90deg,rgba(155,59,255,.0),rgba(255,43,214,.35),rgba(155,59,255,.0));border-top:1px solid rgba(255,43,214,.5);border-bottom:1px solid rgba(155,43,214,.5);font-size:14px;color:#fff;text-shadow:0 0 10px var(--magenta);letter-spacing:.18em}
-  #waveBanner .tri{color:var(--yellow);font-size:14px;text-shadow:0 0 10px var(--yellow);animation:blink 1s infinite}
-  @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
-  /* Boss HP card lives in its OWN HUD grid row (between hudTop and the
-     gameplay area). Width derived from the row, not the viewport, so it
-     can't push the top-row grid wider than the viewport. */
-  #bossBarWrap{display:none;flex-direction:column;align-items:stretch;max-width:420px;margin:0 auto 6px;padding:4px 10px;background:rgba(10,0,20,.7);border:1px solid rgba(255,43,214,.6);border-radius:8px;box-sizing:border-box;width:calc(100% - 24px)}
-  #bossBarWrap .bossName{font-size:11px;letter-spacing:.22em;color:var(--magenta-soft);text-align:center;text-shadow:0 0 8px var(--magenta)}
-  #bossBar{height:8px;background:#1a0030;border-radius:4px;overflow:hidden;border:1px solid rgba(255,255,255,.2);margin-top:3px}
-  #bossBarFill{height:100%;width:100%;background:linear-gradient(90deg,#ffd23a,#ff2bd6,#9b3bff);box-shadow:0 0 12px var(--magenta);transition:width .25s}
+  /* Top HUD: three transparent text-only corners, no panel chrome.
+     min-width:0 + overflow:hidden so no inner element can ever blow out
+     the row and shove the right cell off-screen. */
+  #hudTop{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:start;gap:8px;padding:calc(8px + env(safe-area-inset-top,0px)) 14px 4px;text-shadow:0 1px 0 #000,0 0 8px #000;min-width:0;overflow:hidden}
+  .hudL,.hudC,.hudR{min-width:0;overflow:hidden}
+  .hudL{text-align:left}
+  .hudC{text-align:center}
+  .hudR{text-align:right}
+  .hudScore{font-size:26px;line-height:1;color:#fff;text-shadow:0 0 8px #000,0 0 14px var(--magenta);font-weight:900;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hudMulti{font-size:11px;line-height:1.5;letter-spacing:.16em;color:var(--green);text-shadow:0 0 6px #000;font-weight:900}
+  .hudEarthVal{font-size:13px;line-height:1;letter-spacing:.16em;color:var(--green);text-shadow:0 0 6px #000,0 0 10px rgba(125,255,77,.5);font-weight:900;transition:color .25s}
+  .hudEarthBar{width:100%;max-width:170px;height:4px;margin:4px auto 0;background:rgba(255,255,255,.14);border-radius:2px;overflow:hidden}
+  .hudEarthFill{height:100%;width:100%;background:var(--green);box-shadow:0 0 6px var(--green);transition:width .2s,background .25s,box-shadow .25s}
+  .hudStage{font-size:18px;line-height:1;color:#fff;text-shadow:0 0 6px #000,0 0 10px var(--cyan);font-weight:900;letter-spacing:.06em}
+  .hudWave{font-size:11px;line-height:1.5;letter-spacing:.18em;color:var(--cyan);text-shadow:0 0 6px #000;font-weight:900;opacity:.9;transition:color .2s}
+  .hudWave.boss{color:var(--magenta);text-shadow:0 0 6px #000,0 0 10px var(--magenta);opacity:1}
+  /* Boss HP card lives in its OWN HUD grid row, centered, no panel box —
+     just a thin bar with the boss name above. Magenta→orange gradient to
+     distinguish it from the green Earth health bar. */
+  #bossBarWrap{display:none;flex-direction:column;align-items:stretch;max-width:480px;margin:0 auto 6px;padding:0 14px;box-sizing:border-box;width:100%}
+  #bossBarWrap .bossName{font-size:11px;letter-spacing:.26em;color:var(--magenta-soft);text-align:center;text-shadow:0 0 8px var(--magenta),0 0 14px var(--magenta);margin-bottom:3px}
+  #bossBar{height:8px;background:rgba(0,0,0,.45);border-radius:4px;overflow:hidden;border:1px solid rgba(255,43,214,.55)}
+  #bossBarFill{height:100%;width:100%;background:linear-gradient(90deg,#ff2bd6 0%,#ff7a3a 100%);box-shadow:0 0 12px var(--magenta);transition:width .25s}
 
-  #hudBottom{padding:0 10px calc(10px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:8px;pointer-events:none}
-  #weaponInd{margin:0 auto;font-size:11px;color:var(--yellow);letter-spacing:.22em;text-shadow:0 0 10px var(--yellow);background:rgba(0,0,0,.55);padding:4px 12px;border:1px solid var(--yellow);border-radius:14px;pointer-events:none;display:inline-block;align-self:center;white-space:nowrap;text-align:center}
+  /* Bottom HUD: single row, doom-left | weapon-center | yeet-right.
+     Grid with 1fr auto 1fr columns guarantees the weapon pill sits at
+     the screen's horizontal center regardless of button widths. */
+  #hudBottom{padding:0 10px calc(10px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;pointer-events:none}
+  #doomBtn{justify-self:start}
+  #yeetBtn{justify-self:end}
+  #weaponInd{justify-self:center;font-size:11px;color:var(--yellow);letter-spacing:.22em;text-shadow:0 0 10px var(--yellow);background:rgba(0,0,0,.55);padding:4px 12px;border:1px solid var(--yellow);border-radius:14px;pointer-events:none;white-space:nowrap;text-align:center}
 
-  #bottomBtns{display:flex;justify-content:space-between;align-items:center;width:100%;gap:8px}
   .actionBtn{pointer-events:auto;width:84px;height:84px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#1a0030,#0a0014 70%);font-family:inherit;font-weight:900;font-size:10px;letter-spacing:.14em;position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.1;padding:6px;flex:0 0 auto}
   .actionBtn .icon{font-size:20px;display:block;margin-bottom:2px}
   .actionBtn:disabled{opacity:.55;cursor:default}
@@ -125,6 +133,7 @@
   #stinger{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:11;pointer-events:none}
   #stinger .stText{font-size:clamp(36px,12vw,72px);color:#fff;text-shadow:0 0 18px var(--magenta),0 0 36px var(--magenta),0 4px 0 #000;letter-spacing:.18em;text-align:center;animation:stIn .4s cubic-bezier(.2,.9,.3,1.4)}
   @keyframes stIn{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
+  @keyframes stFade{to{opacity:0;transform:scale(.96)}}
 
   /* ============ Game over ============ */
   #gameover{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:11;background:rgba(2,0,10,.92);padding:18px}
@@ -151,19 +160,17 @@
 <!-- HUD -->
 <div id="hud">
   <div id="hudTop">
-    <div class="hCell">
-      <div class="lbl">Score</div>
-      <div class="val" id="score">0</div>
-      <div class="small" id="multi">x1</div>
+    <div class="hudL">
+      <div class="hudScore" id="score">0</div>
+      <div class="hudMulti" id="multi">x1</div>
     </div>
-    <div class="hCell" style="text-align:center">
-      <div class="lbl" id="lives">EARTH 100%</div>
-      <div id="waveBanner"><span class="tri">▲</span><span id="waveName">SECTOR 1</span><span class="tri">▲</span></div>
+    <div class="hudC">
+      <div class="hudEarthVal" id="earthVal">EARTH 100%</div>
+      <div class="hudEarthBar"><div class="hudEarthFill" id="earthFill"></div></div>
     </div>
-    <div class="hCell right">
-      <div class="lbl">High Score</div>
-      <div class="val" id="best">0</div>
-      <div class="small">CR <span id="credits">∞</span></div>
+    <div class="hudR">
+      <div class="hudStage" id="stageNum">S1</div>
+      <div class="hudWave" id="waveNum">W1/5</div>
     </div>
   </div>
   <div id="bossBarWrap">
@@ -172,18 +179,16 @@
   </div>
   <div id="hudCenter"></div>
   <div id="hudBottom">
+    <button id="doomBtn" class="actionBtn" disabled>
+      <span><span class="icon">🚀</span>DOOM<br>SQUAD</span>
+      <div class="cd" id="doomCd"></div>
+      <div class="timer" id="doomTimer">30</div>
+    </button>
     <div id="weaponInd">PEW CANNON</div>
-    <div id="bottomBtns">
-      <button id="doomBtn" class="actionBtn" disabled>
-        <span><span class="icon">🚀</span>DOOM<br>SQUAD</span>
-        <div class="cd" id="doomCd"></div>
-        <div class="timer" id="doomTimer">30</div>
-      </button>
-      <button id="yeetBtn" class="actionBtn" disabled>
-        <span><span class="icon">🪐</span>PLANETARY<br>YEET</span>
-        <div class="cd" id="yeetCd"></div>
-      </button>
-    </div>
+    <button id="yeetBtn" class="actionBtn" disabled>
+      <span><span class="icon">🪐</span>PLANETARY<br>YEET</span>
+      <div class="cd" id="yeetCd"></div>
+    </button>
   </div>
 </div>
 
@@ -258,9 +263,10 @@ const endlessBtn=document.getElementById('endlessBtn');
 const cynthiaBtn=document.getElementById('cynthiaBtn');
 const scoreEl=document.getElementById('score');
 const multiEl=document.getElementById('multi');
-const livesEl=document.getElementById('lives');
-const waveNameEl=document.getElementById('waveName');
-const bestEl=document.getElementById('best');
+const earthValEl=document.getElementById('earthVal');
+const earthFillEl=document.getElementById('earthFill');
+const stageNumEl=document.getElementById('stageNum');
+const waveNumEl=document.getElementById('waveNum');
 const bossBarWrap=document.getElementById('bossBarWrap');
 const bossBarFill=document.getElementById('bossBarFill');
 const bossNameEl=document.getElementById('bossName');
@@ -430,7 +436,6 @@ const Audio={
 // ---------- Globals ----------
 let W=0,H=0,dpr=1,last=0,state=STATE.TITLE,fire=false;
 let best=Number(localStorage.getItem('ed_best')||0);
-bestEl.textContent=best.toLocaleString();
 let campaignDone=localStorage.getItem('ed_campaign')==='1';
 let cynthiaUnlocked=campaignDone;
 if(cynthiaUnlocked){
@@ -890,11 +895,26 @@ function closeDialog(){
   if(cb)cb();
 }
 
-// ---------- Stinger (wave clear / boss incoming) ----------
+// ---------- Stinger (wave clear / boss incoming — BLOCKS via callback) ----------
 function stinger(text,after,dur=1400){
   stingerText.textContent=text;
   stingerEl.style.display='flex';
-  setTimeout(()=>{stingerEl.style.display='none';if(after)after()},dur);
+  stingerEl.style.animation='';
+  clearTimeout(stingerEl._t);
+  stingerEl._t=setTimeout(()=>{stingerEl.style.display='none';if(after)after()},dur);
+}
+// Non-blocking centered announcement (used for "STAGE X" banner on a fresh
+// stage). Plays the same pop-in animation, then auto-fades over the last
+// second of its duration. Gameplay starts immediately around it.
+function announce(text,dur=3000){
+  stingerText.textContent=text;
+  stingerEl.style.display='flex';
+  stingerEl.style.animation=`stIn .4s cubic-bezier(.2,.9,.3,1.4), stFade 1s linear ${Math.max(0,(dur-1000)/1000)}s forwards`;
+  clearTimeout(stingerEl._t);
+  stingerEl._t=setTimeout(()=>{
+    stingerEl.style.display='none';
+    stingerEl.style.animation='';
+  },dur);
 }
 
 // ---------- Stage / Wave Mgmt ----------
@@ -906,7 +926,9 @@ function startStage(stageIdx){
   G.killsThisStage=0;
   G.yeetAvailable=true; // refresh once-per-stage nuke
   yeetBtn.disabled=false;yeetBtn.classList.add('ready');
-  stinger(G.stageDef.name,()=>{startWaveInStage(0)},1400);
+  // Non-blocking 3s announcement; gameplay begins immediately around it.
+  announce(G.stageDef.name,3000);
+  startWaveInStage(0);
 }
 
 function startWaveInStage(idx){
@@ -914,7 +936,6 @@ function startWaveInStage(idx){
   const def={name:G.stageDef.name+' · WAVE '+G.waveInStage+'/5',
              dur:G.stageDef.waveDur, rate:G.stageDef.rate, types:G.stageDef.enemies};
   G.waveDef=def;G.waveProgress=0;G.spawnT=.5;
-  waveNameEl.textContent=def.name;
   state=STATE.PLAYING;
 }
 
@@ -1622,15 +1643,24 @@ function hud(){
   scoreEl.textContent=Math.floor(G.score).toLocaleString();
   multiEl.textContent='x'+G.multi.toFixed(G.multi>=2?1:0);
   multiEl.style.color=G.multi>=4?'#ff2bd6':G.multi>=2?'#ffd23a':'#7dff4d';
+  // Earth: percentage + thin progress bar. Color shifts green→yellow→red.
   const earthPct=Math.max(0,Math.ceil(G.earth));
-  livesEl.textContent='EARTH '+earthPct+'%';
-  livesEl.style.color=earthPct<=25?'#ff3a5c':earthPct<=55?'#ffd23a':'#22f0ff';
-  if(G.waveDef && !G.boss){
-    waveNameEl.textContent=G.waveDef.name;
-  }
-  // Weapon indicator: show the temp Earthquake Bomb counter when active,
-  // otherwise the equipped progression weapon. Skip the DOM write if the
-  // text hasn't changed to keep this hot-path cheap.
+  const earthColor=earthPct<=25?'#ff3a5c':earthPct<=55?'#ffd23a':'#7dff4d';
+  earthValEl.textContent='EARTH '+earthPct+'%';
+  earthValEl.style.color=earthColor;
+  earthFillEl.style.width=Math.max(0,Math.min(100,G.earth))+'%';
+  earthFillEl.style.background=earthColor;
+  earthFillEl.style.boxShadow='0 0 6px '+earthColor;
+  // Compact stage/wave indicator in the top-right corner. During boss
+  // fights the wave indicator flips to "BOSS" (magenta) since the stage
+  // is the same but the encounter has changed.
+  const wantStage='S'+G.stage;
+  const wantWave=G.boss?'BOSS':'W'+G.waveInStage+'/5';
+  if(stageNumEl.textContent!==wantStage)stageNumEl.textContent=wantStage;
+  if(waveNumEl.textContent!==wantWave)waveNumEl.textContent=wantWave;
+  waveNumEl.classList.toggle('boss',!!G.boss);
+  // Weapon indicator: bomb counter while shots remain, otherwise the
+  // equipped progression weapon. Skip the DOM write if text is unchanged.
   let want, wantColor;
   if(G.bombShots>0){
     want='⚠ EARTHQUAKE BOMB · '+G.bombShots+'/5';
@@ -2142,7 +2172,6 @@ function gameOver(){
   Audio.sDie();
   best=Math.max(best,Math.floor(G.score));
   localStorage.setItem('ed_best',best);
-  bestEl.textContent=best.toLocaleString();
   goTitle.textContent='EARTH IS COOKED';
   goSub.textContent='The comets are smug.';
   goScore.textContent=Math.floor(G.score).toLocaleString();
@@ -2163,7 +2192,6 @@ function victoryScreen(){
   Audio.stop();
   best=Math.max(best,Math.floor(G.score));
   localStorage.setItem('ed_best',best);
-  bestEl.textContent=best.toLocaleString();
   goTitle.textContent='EARTH SAVED.';
   goSub.textContent='Cynthia unlocked. Endless awaits.';
   goScore.textContent=Math.floor(G.score).toLocaleString();
