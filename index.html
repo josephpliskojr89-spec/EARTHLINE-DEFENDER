@@ -27,9 +27,11 @@
   canvas#c{display:block;width:100vw;height:100vh;background:#02000a;image-rendering:pixelated}
 
   /* ============ HUD ============ */
-  #hud{position:fixed;inset:0;pointer-events:none;z-index:5;display:grid;grid-template-rows:auto 1fr auto;font-weight:900}
-  #hudTop{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:8px;padding:calc(8px + env(safe-area-inset-top,0px)) 12px 6px;text-shadow:0 0 8px #000,0 2px 0 #000}
-  .hCell{padding:6px 10px;border:2px solid rgba(255,43,214,.55);background:linear-gradient(180deg,rgba(10,0,30,.85),rgba(20,0,40,.6));border-radius:10px;box-shadow:0 0 12px rgba(255,43,214,.25),inset 0 0 16px rgba(34,240,255,.08)}
+  #hud{position:fixed;inset:0;pointer-events:none;z-index:5;display:grid;grid-template-rows:auto auto 1fr auto;font-weight:900;overflow:hidden}
+  #hudTop{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:8px;padding:calc(8px + env(safe-area-inset-top,0px)) 12px 6px;text-shadow:0 0 8px #000,0 2px 0 #000;min-width:0}
+  /* min-width:0 + overflow:hidden so no inner content can ever blow out
+     the 3-column grid and shove the right cell off-screen. */
+  .hCell{padding:6px 10px;border:2px solid rgba(255,43,214,.55);background:linear-gradient(180deg,rgba(10,0,30,.85),rgba(20,0,40,.6));border-radius:10px;box-shadow:0 0 12px rgba(255,43,214,.25),inset 0 0 16px rgba(34,240,255,.08);min-width:0;overflow:hidden}
   .hCell .lbl{font-size:9px;letter-spacing:.18em;color:var(--cyan);text-transform:uppercase;font-weight:700}
   .hCell .val{font-size:18px;line-height:1;color:#fff;text-shadow:0 0 8px var(--magenta),0 0 14px var(--magenta)}
   .hCell.right{text-align:right}
@@ -38,7 +40,10 @@
   #waveBanner{display:flex;align-items:center;gap:8px;padding:4px 10px;background:linear-gradient(90deg,rgba(155,59,255,.0),rgba(255,43,214,.35),rgba(155,59,255,.0));border-top:1px solid rgba(255,43,214,.5);border-bottom:1px solid rgba(155,43,214,.5);font-size:14px;color:#fff;text-shadow:0 0 10px var(--magenta);letter-spacing:.18em}
   #waveBanner .tri{color:var(--yellow);font-size:14px;text-shadow:0 0 10px var(--yellow);animation:blink 1s infinite}
   @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
-  #bossBarWrap{display:none;flex-direction:column;align-items:stretch;width:min(86vw,420px);margin:6px auto 0;padding:4px 8px;background:rgba(10,0,20,.7);border:1px solid rgba(255,43,214,.6);border-radius:8px}
+  /* Boss HP card lives in its OWN HUD grid row (between hudTop and the
+     gameplay area). Width derived from the row, not the viewport, so it
+     can't push the top-row grid wider than the viewport. */
+  #bossBarWrap{display:none;flex-direction:column;align-items:stretch;max-width:420px;margin:0 auto 6px;padding:4px 10px;background:rgba(10,0,20,.7);border:1px solid rgba(255,43,214,.6);border-radius:8px;box-sizing:border-box;width:calc(100% - 24px)}
   #bossBarWrap .bossName{font-size:11px;letter-spacing:.22em;color:var(--magenta-soft);text-align:center;text-shadow:0 0 8px var(--magenta)}
   #bossBar{height:8px;background:#1a0030;border-radius:4px;overflow:hidden;border:1px solid rgba(255,255,255,.2);margin-top:3px}
   #bossBarFill{height:100%;width:100%;background:linear-gradient(90deg,#ffd23a,#ff2bd6,#9b3bff);box-shadow:0 0 12px var(--magenta);transition:width .25s}
@@ -154,16 +159,16 @@
     <div class="hCell" style="text-align:center">
       <div class="lbl" id="lives">EARTH 100%</div>
       <div id="waveBanner"><span class="tri">▲</span><span id="waveName">SECTOR 1</span><span class="tri">▲</span></div>
-      <div id="bossBarWrap">
-        <div class="bossName" id="bossName">BOSS</div>
-        <div id="bossBar"><div id="bossBarFill"></div></div>
-      </div>
     </div>
     <div class="hCell right">
       <div class="lbl">High Score</div>
       <div class="val" id="best">0</div>
       <div class="small">CR <span id="credits">∞</span></div>
     </div>
+  </div>
+  <div id="bossBarWrap">
+    <div class="bossName" id="bossName">BOSS</div>
+    <div id="bossBar"><div id="bossBarFill"></div></div>
   </div>
   <div id="hudCenter"></div>
   <div id="hudBottom">
