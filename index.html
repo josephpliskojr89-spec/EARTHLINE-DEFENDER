@@ -35,7 +35,7 @@
   .hudL,.hudC,.hudR{min-width:0;overflow:hidden}
   .hudL{text-align:left}
   .hudC{text-align:center}
-  .hudR{text-align:right}
+  .hudR{text-align:right;padding-right:42px}/* clears the settings gear */
   .hudScore{font-size:26px;line-height:1;color:#fff;text-shadow:0 0 8px #000,0 0 14px var(--magenta);font-weight:900;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .hudMulti{font-size:11px;line-height:1.5;letter-spacing:.16em;color:var(--green);text-shadow:0 0 6px #000;font-weight:900}
   .hudEarthVal{font-size:13px;line-height:1;letter-spacing:.16em;color:var(--green);text-shadow:0 0 6px #000,0 0 10px rgba(125,255,77,.5);font-weight:900;transition:color .25s}
@@ -146,8 +146,24 @@
   #goPanel .stat span:first-child{color:var(--cyan);letter-spacing:.18em;font-size:11px}
   #goPanel button{margin-top:16px;width:100%;padding:14px;background:linear-gradient(135deg,var(--magenta),var(--purple));color:#fff;border:0;border-radius:12px;font-family:inherit;font-weight:900;font-size:16px;letter-spacing:.2em;box-shadow:0 0 18px rgba(255,43,214,.5);cursor:pointer}
 
-  /* sound toggle (corner) */
-  #soundToggle{position:fixed;top:calc(8px + env(safe-area-inset-top,0px));right:8px;z-index:20;width:34px;height:34px;border:2px solid var(--cyan);background:rgba(0,0,20,.7);border-radius:50%;color:var(--cyan);font-size:14px;display:flex;align-items:center;justify-content:center;pointer-events:auto;cursor:pointer}
+  /* Settings gear (top-right corner) + overlay panel. Gear sits in the
+     safe area at the very corner; stage/wave indicator gets right
+     padding so the two never overlap. */
+  #settingsBtn{position:fixed;top:calc(6px + env(safe-area-inset-top,0px));right:8px;z-index:20;width:34px;height:34px;border:2px solid var(--cyan);background:rgba(0,0,20,.7);border-radius:50%;color:var(--cyan);font-size:18px;display:flex;align-items:center;justify-content:center;pointer-events:auto;cursor:pointer;text-shadow:0 0 8px var(--cyan)}
+  #settingsBtn:active{transform:scale(.95)}
+  #settings{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:25;background:rgba(2,0,10,.85);padding:18px}
+  #settingsPanel{width:min(380px,100%);background:#0a0014;border:2px solid var(--magenta);border-radius:14px;padding:18px 18px 14px;box-shadow:0 0 28px rgba(255,43,214,.45);color:#fff}
+  #settingsPanel h3{margin:0 0 14px;text-align:center;font-size:16px;letter-spacing:.32em;color:var(--magenta);text-shadow:0 0 10px var(--magenta)}
+  #settingsPanel .row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid rgba(255,255,255,.08)}
+  #settingsPanel .row:first-of-type{border-top:0}
+  #settingsPanel .label{font-size:13px;letter-spacing:.16em;color:var(--cyan)}
+  #settingsPanel .label .sub{display:block;font-size:9px;letter-spacing:.22em;color:#7a6a8a;margin-top:2px}
+  #settingsPanel .row.disabled .label{color:#7a6a8a}
+  #settingsPanel .row.disabled .label .sub{color:#5a4a6a}
+  #settingsPanel .toggleBtn{appearance:none;border:1px solid var(--cyan);background:rgba(34,240,255,.12);color:var(--cyan);font-family:inherit;font-weight:900;font-size:11px;letter-spacing:.2em;padding:6px 14px;border-radius:16px;cursor:pointer}
+  #settingsPanel .toggleBtn.off{border-color:#666;background:rgba(50,50,60,.4);color:#9aa}
+  #settingsPanel .toggleBtn.disabled{border-color:#4a3a5a;background:rgba(60,40,80,.3);color:#7a6a8a;cursor:default}
+  #settingsPanel .closeBtn{margin-top:14px;width:100%;padding:11px;background:linear-gradient(135deg,var(--magenta),var(--purple));border:0;border-radius:10px;color:#fff;font-family:inherit;font-weight:900;font-size:13px;letter-spacing:.24em;cursor:pointer}
 
   /* small toast */
   #toast{position:fixed;left:50%;top:24%;transform:translate(-50%,-50%);z-index:9;font-size:14px;color:#fff;text-shadow:0 0 10px var(--cyan),0 0 14px var(--magenta);letter-spacing:.22em;text-align:center;opacity:0;transition:opacity .2s;pointer-events:none}
@@ -242,7 +258,21 @@
   </div>
 </div>
 
-<button id="soundToggle" title="Sound">🔊</button>
+<button id="settingsBtn" title="Settings">⚙</button>
+<div id="settings">
+  <div id="settingsPanel">
+    <h3>SETTINGS</h3>
+    <div class="row">
+      <div class="label">SOUND<span class="sub">music + sfx</span></div>
+      <button class="toggleBtn" id="soundToggleBtn">ON</button>
+    </div>
+    <div class="row disabled">
+      <div class="label">DIFFICULTY<span class="sub">coming soon</span></div>
+      <button class="toggleBtn disabled" disabled>NORMAL</button>
+    </div>
+    <button class="closeBtn" id="settingsClose">CLOSE</button>
+  </div>
+</div>
 
 <audio id="bgm" loop preload="auto"></audio>
 <audio id="bossBgm" loop preload="auto"></audio>
@@ -293,7 +323,10 @@ const goBest=document.getElementById('goBest');
 const goWave=document.getElementById('goWave');
 const goKills=document.getElementById('goKills');
 const goRetry=document.getElementById('goRetry');
-const soundToggle=document.getElementById('soundToggle');
+const settingsBtn=document.getElementById('settingsBtn');
+const settingsEl=document.getElementById('settings');
+const settingsClose=document.getElementById('settingsClose');
+const soundToggleBtn=document.getElementById('soundToggleBtn');
 const bgm=document.getElementById('bgm');
 const bossBgm=document.getElementById('bossBgm');
 const doomBgm=document.getElementById('doomBgm');
@@ -388,7 +421,10 @@ const Audio={
   toggleMute(){
     this.muted=!this.muted;
     [bgm,bossBgm,doomBgm].forEach(el=>{el.muted=this.muted;el.volume=this.muted?0:this.vol});
-    soundToggle.textContent=this.muted?'🔇':'🔊';
+    if(soundToggleBtn){
+      soundToggleBtn.textContent=this.muted?'OFF':'ON';
+      soundToggleBtn.classList.toggle('off',this.muted);
+    }
   },
   // Tiny SFX synth via WebAudio (no sample files needed)
   ac:null,
@@ -458,6 +494,7 @@ const G={
   shieldActive:0, // seconds remaining when shield power-up is active
   doomCharge:0,   // 0-100, paused while doomActive>0
   doomActive:0,   // seconds remaining
+  doomIntro:0,    // 0..1s — wingmen slide-in + title flash phase
   yeetAvailable:true, // once-per-stage, refreshes on new stage, locked during boss
   invuln:0,       // post-hit invulnerability seconds
   weapon:'pew', weaponLv:1, weaponStep:0, // 0..11 — deterministic progression index
@@ -1000,9 +1037,10 @@ function update(dt){
   G.multiTimer=Math.max(0,G.multiTimer-dt);
   G.invuln=Math.max(0,G.invuln-dt);
   if(G.multiTimer<=0 && G.multi>1){G.multi=Math.max(1,G.multi-dt*.5)}
-  // Doom Squadron duration
+  // Doom Squadron duration + activation intro
   const wasActive=G.doomActive>0;
   G.doomActive=Math.max(0,G.doomActive-dt);
+  G.doomIntro=Math.max(0,G.doomIntro-dt);
   if(wasActive && G.doomActive<=0){
     doomBtn.classList.remove('active');
     Audio.endDoom();
@@ -1178,7 +1216,7 @@ function update(dt){
       const b=G.bullets[i];if(b.friend)continue;
       if(d2(b,p)<(b.r+p.r)**2){
         G.bullets.splice(i,1);
-        playerHit(10);
+        playerHit(8);
         if(G.earth<=0)break;
       }
     }
@@ -1346,9 +1384,13 @@ function bossAttack(b){
       G.bullets.push({x:b.x+rand(-30,30),y:b.y+10,vx:rand(-40,40),vy:280+rand(0,60),r:5,friend:false,dmg:1,trail:'#a0a0a0'});
     }
   }else if(b.kind==='tentaclon'){
-    // ink wall: row of slow projectiles
-    for(let x=20;x<W-20;x+=42){
-      G.bullets.push({x,y:b.y+30,vx:0,vy:170,r:5,friend:false,dmg:1,trail:'#7b1fa2'});
+    // Wide angular ink spread from the boss's position. Seven projectiles
+    // fanned across ~84° leave clear gaps the player can dodge through
+    // with side-to-side movement — dangerous but beatable with skill.
+    const sp=200;
+    for(let i=-3;i<=3;i++){
+      const ang=Math.PI/2 + i*0.245; // ~14° per step
+      G.bullets.push({x:b.x,y:b.y+30,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,r:5,friend:false,dmg:1,trail:'#7b1fa2'});
     }
   }else if(b.kind==='mothership'){
     // multiple weakpoints fire pink plasma
@@ -1542,8 +1584,10 @@ function shoot(){
     Audio.sPyro();
   }else{cd=.14}
 
-  // Doom Squadron wingmen flank the player and fire in sync
-  if(doom){
+  // Doom Squadron wingmen flank the player and fire in sync.
+  // Suppressed during the 1s activation intro so the slide-in reads as
+  // its own beat before the actual gameplay phase begins.
+  if(doom && G.doomIntro<=0){
     const wx=44;
     G.bullets.push({x:p.x-wx,y:p.y-8,vx:0,vy:-680,r:4,friend:true,dmg:1,trail:'#ff2bd6'});
     G.bullets.push({x:p.x+wx,y:p.y-8,vx:0,vy:-680,r:4,friend:true,dmg:1,trail:'#22f0ff'});
@@ -1569,13 +1613,75 @@ function fireBombShot(p){
   Audio.sExplode();
 }
 
-// Render Hank (left) + Tank (right) wingmen during Doom Squadron
+// Render Hank (left) + Tank (right) wingmen during Doom Squadron.
+// During the 1s activation intro (G.doomIntro > 0), they slide in from
+// off-screen left/right to their normal flank positions over the first
+// 0.6s, easing out. After the intro completes they hold the standard
+// offset and the co-fire logic in shoot() kicks in.
 function drawWingmen(){
   if(G.doomActive<=0||!G.player)return;
   const p=G.player;
   const t=G.time;
-  drawWing(p.x-46+Math.sin(t*4)*2, p.y+4+Math.sin(t*5)*1.5, ASSETS.ship_hank, '#ff2bd6','#9b3bff','H');
-  drawWing(p.x+46+Math.cos(t*4)*2, p.y+4+Math.cos(t*5)*1.5, ASSETS.ship_tank, '#22f0ff','#1a6080','T');
+  const finalOffset=46;
+  let slide=0;
+  if(G.doomIntro>0){
+    const elapsed=1.0-G.doomIntro;        // 0..1 over the intro
+    const slideT=Math.min(1,elapsed/0.6); // first 0.6s = the slide
+    const eased=1-(1-slideT)*(1-slideT);  // ease-out
+    slide=1-eased;                        // 1 → fully off-screen, 0 → in position
+  }
+  const lOffset=finalOffset + slide*(p.x + 80); // pushes Hank left off-screen
+  const rOffset=finalOffset + slide*(W - p.x + 80); // pushes Tank right off-screen
+  drawWing(p.x-lOffset+Math.sin(t*4)*2, p.y+4+Math.sin(t*5)*1.5, ASSETS.ship_hank, '#ff2bd6','#9b3bff','H');
+  drawWing(p.x+rOffset+Math.cos(t*4)*2, p.y+4+Math.cos(t*5)*1.5, ASSETS.ship_tank, '#22f0ff','#1a6080','T');
+}
+
+// Doom Squadron activation flourish — HANK / TANK side labels for the
+// first 0.6s, then the big "DOOM SQUADRON" arcade title card flashes
+// centered with a one-frame scale-punch and fades out by ~1.0s.
+function drawDoomIntro(){
+  if(G.doomIntro<=0)return;
+  const total=1.0;
+  const elapsed=total-G.doomIntro;
+  ctx.save();
+  // Phase 1: HANK (left, magenta) + TANK (right, cyan) — fade in then out
+  if(elapsed<0.6){
+    const t=elapsed/0.6;
+    const alpha=t<.25?(t/.25):t>.75?((1-t)/.25):1;
+    ctx.globalAlpha=Math.max(0,Math.min(1,alpha));
+    ctx.font='900 28px Impact';
+    ctx.textBaseline='middle';
+    ctx.shadowBlur=18;
+    ctx.fillStyle='#ff2bd6';ctx.shadowColor='#ff2bd6';
+    ctx.textAlign='left';
+    ctx.fillText('HANK',18,H*.42);
+    ctx.fillStyle='#22f0ff';ctx.shadowColor='#22f0ff';
+    ctx.textAlign='right';
+    ctx.fillText('TANK',W-18,H*.42);
+  }
+  // Phase 2: DOOM SQUADRON title card (0.6s → 1.0s)
+  if(elapsed>=0.6){
+    const t=(elapsed-0.6)/0.4; // 0..1 over the last 0.4s
+    let scale, alpha;
+    if(t<0.06){scale=1.35;alpha=1}             // one-frame punch
+    else if(t<0.75){scale=1.0;alpha=1}          // hold (~0.28s)
+    else{scale=1.0;alpha=Math.max(0,1-(t-0.75)/0.25)} // 0.1s fade
+    ctx.globalAlpha=alpha;
+    ctx.translate(W/2,H*.34);
+    ctx.scale(scale,scale);
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.shadowBlur=28;
+    const size=Math.min(56,Math.floor(W/9.5));
+    ctx.font='900 '+size+'px Impact';
+    ctx.fillStyle='#ff2bd6';ctx.shadowColor='#ff2bd6';
+    ctx.fillText('DOOM SQUADRON',0,0);
+    // Subtle cyan inner glow pass for that arcade neon depth
+    ctx.shadowColor='#22f0ff';ctx.shadowBlur=14;
+    ctx.fillStyle='rgba(255,255,255,.92)';
+    ctx.font='900 '+Math.floor(size*.85)+'px Impact';
+    ctx.fillText('DOOM SQUADRON',0,0);
+  }
+  ctx.restore();
 }
 function drawWing(x,y,img,c1,c2,initial){
   ctx.save();ctx.translate(x,y);
@@ -1632,11 +1738,13 @@ function tryDoomSquadron(){
   if(G.doomCharge<100||G.doomActive>0)return;
   G.doomCharge=0;
   G.doomActive=30;
+  G.doomIntro=1.0; // 1s activation flourish: wingmen slide in, title flash
   doomBtn.disabled=true;
   doomBtn.classList.remove('ready');
   doomBtn.classList.add('active');
   doomTimerEl.textContent='30';
   Audio.startDoom();
+  // The toast doubles as a quick reinforcer of the title-flash card
   toastMsg('DOOM SQUADRON ONLINE',1600);
 }
 
@@ -2163,6 +2271,9 @@ function draw(){
   drawParts();
   drawFxs();
   ctx.restore();
+  // Doom Squadron activation title card — rendered outside the shake
+  // transform so it stays rock-steady during its 1s flourish.
+  drawDoomIntro();
 }
 
 // ---------- Game Over / Victory ----------
@@ -2212,7 +2323,7 @@ function resetGame(){
   G.earth=100;G.time=0;G.spawnT=.5;G.fireCd=0;
   G.rapid=0;G.shieldActive=0;G.shake=0;G.invuln=0;
   G.bullets=[];G.enemies=[];G.parts=[];G.fxs=[];
-  G.doomCharge=0;G.doomActive=0;
+  G.doomCharge=0;G.doomActive=0;G.doomIntro=0;
   G.yeetAvailable=true;
   yeetBtn.disabled=false;yeetBtn.classList.add('ready');
   doomBtn.disabled=true;doomBtn.classList.remove('ready');doomBtn.classList.remove('active');
@@ -2344,7 +2455,13 @@ goRetry.onclick=()=>{
 };
 yeetBtn.addEventListener('pointerdown',e=>{e.stopPropagation();planetaryYeet()});
 doomBtn.addEventListener('pointerdown',e=>{e.stopPropagation();tryDoomSquadron()});
-soundToggle.addEventListener('pointerdown',e=>{e.stopPropagation();Audio.toggleMute()});
+// Settings overlay: gear opens, close button or background-tap dismisses.
+function openSettings(){settingsEl.style.display='flex'}
+function closeSettings(){settingsEl.style.display='none'}
+settingsBtn.addEventListener('pointerdown',e=>{e.stopPropagation();openSettings()});
+settingsClose.addEventListener('pointerdown',e=>{e.stopPropagation();closeSettings()});
+settingsEl.addEventListener('pointerdown',e=>{if(e.target===settingsEl)closeSettings()});
+soundToggleBtn.addEventListener('pointerdown',e=>{e.stopPropagation();Audio.toggleMute()});
 
 // Visibility: pause audio when hidden
 document.addEventListener('visibilitychange',()=>{
