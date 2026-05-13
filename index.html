@@ -589,6 +589,27 @@ function trail(x,y,color){
   if(G.parts.length>=PARTS_CAP)return;
   G.parts.push({x:x+rand(-3,3),y:y+rand(-3,3),vx:rand(-12,12),vy:rand(20,80),r:rand(1.6,3.4),life:.4,max:.4,color});
 }
+// Cluster of upward-drifting fire particles in a red/orange/yellow palette.
+// Used for Pyro Pulse: dropped at every enemy the splash touches so the
+// damage spread is unmistakable. Capped by PARTS_CAP.
+const FLAME_COLORS=['#ffec5a','#ffd23a','#ff9a3a','#ff5a3a','#ff3a2a'];
+function flamePlume(x,y,n=10){
+  if(G.parts.length>=PARTS_CAP)return;
+  const room=PARTS_CAP-G.parts.length;
+  const count=Math.min(n,room);
+  for(let i=0;i<count;i++){
+    const a=rand(-Math.PI*.85,-Math.PI*.15); // upward-ish
+    const s=rand(45,150);
+    G.parts.push({
+      x:x+rand(-7,7), y:y+rand(-5,5),
+      vx:Math.cos(a)*s+rand(-25,25),
+      vy:Math.sin(a)*s, // negative = upward
+      r:rand(2,4.6),
+      life:rand(.45,.9), max:.9,
+      color:FLAME_COLORS[Math.floor(rand(0,FLAME_COLORS.length))]
+    });
+  }
+}
 function flash(x,y,r,color){
   if(G.fxs.length>=FXS_CAP)G.fxs.shift();
   G.fxs.push({type:'ring',x,y,r0:r*.4,r1:r*1.6,life:.35,max:.35,color});
@@ -604,8 +625,28 @@ function shockwave(x,y){if(G.fxs.length>=FXS_CAP)G.fxs.shift();G.fxs.push({type:
 function applyAOE(x,y,r,dmg,excludeEnemyIdx,excludeBoss,chainLv,color,isChain){
   if(!r||!dmg)return;
   const ringColor=color||'#ffd23a';
-  if(G.fxs.length>=FXS_CAP)G.fxs.shift();
-  G.fxs.push({type:'ring',x,y,r0:r*.2,r1:r,life:.4,max:.4,color:ringColor});
+  const isPyro=ringColor==='#ff5a3a';
+  // Impact fx: pyro lays down layered rings + ember spray for that "fire
+  // spreading" read; quake stays with the single ring.
+  if(isPyro){
+    if(G.fxs.length>=FXS_CAP)G.fxs.shift();
+    G.fxs.push({type:'ring',x,y,r0:r*.1,r1:r*1.05,life:.5,max:.5,color:'#ff5a3a'});
+    if(G.fxs.length>=FXS_CAP)G.fxs.shift();
+    G.fxs.push({type:'ring',x,y,r0:r*.35,r1:r*.85,life:.32,max:.32,color:'#ffd23a'});
+    // Ember spray outward
+    const ember=Math.min(16,PARTS_CAP-G.parts.length);
+    for(let i=0;i<ember;i++){
+      const a=rand(0,TAU),s=rand(70,220);
+      G.parts.push({
+        x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,
+        r:rand(2,5),life:rand(.5,1.0),max:1.0,
+        color:FLAME_COLORS[Math.floor(rand(0,FLAME_COLORS.length))]
+      });
+    }
+  }else{
+    if(G.fxs.length>=FXS_CAP)G.fxs.shift();
+    G.fxs.push({type:'ring',x,y,r0:r*.2,r1:r,life:.4,max:.4,color:ringColor});
+  }
   G.shake=Math.max(G.shake,isChain?3:7);
   if(isChain) Audio.sChain(); else Audio.sQuake();
   const r2=r*r;
@@ -620,7 +661,10 @@ function applyAOE(x,y,r,dmg,excludeEnemyIdx,excludeBoss,chainLv,color,isChain){
     const dx=e.x-x,dy=e.y-y;
     if(dx*dx+dy*dy<=r2){
       e.hp-=dmg;
-      burst(e.x,e.y,ringColor,5,150);
+      // Every enemy the splash touches gets a visible flame plume so the
+      // damage spread is obvious. Quake keeps the cheaper spark burst.
+      if(isPyro) flamePlume(e.x,e.y,8);
+      else burst(e.x,e.y,ringColor,5,150);
       if(e.hp<=0){
         e._dead=true;
         if(chainLv>0){
@@ -635,6 +679,7 @@ function applyAOE(x,y,r,dmg,excludeEnemyIdx,excludeBoss,chainLv,color,isChain){
     if(dx*dx+dy*dy<=(r+G.boss.r*.5)**2){
       G.boss.hp-=dmg;
       flash(G.boss.x,G.boss.y,G.boss.r+10,ringColor);
+      if(isPyro) flamePlume(G.boss.x,G.boss.y+G.boss.r*.3,14);
       bossBarFill.style.width=Math.max(0,G.boss.hp/G.boss.maxHp*100)+'%';
       if(G.boss.hp<=0){endBoss();onBossDefeated()}
     }
@@ -1009,7 +1054,15 @@ function update(dt){
         b.vx=Math.cos(na)*sp;b.vy=Math.sin(na)*sp;
       }
     }
-    if(b.trail){trail(b.x,b.y,b.trail)}
+    if(b.trail){
+      trail(b.x,b.y,b.trail);
+      // Pyro Pulse bolts get a much thicker, multi-hue ember tail so the
+      // weapon reads as a moving fireball rather than a colored dot.
+      if(b.pyro){
+        trail(b.x+rand(-4,4),b.y+rand(-2,2),'#ffd23a');
+        if(Math.random()<.6) trail(b.x+rand(-3,3),b.y+rand(-2,2),'#ff3a2a');
+      }
+    }
   });
   G.bullets=G.bullets.filter(b=>b.y>-60 && b.y<H+80 && b.x>-60 && b.x<W+60 && (b.life===undefined||b.life>0));
 
@@ -1439,21 +1492,23 @@ function shoot(){
     }
     Audio.sMissile();
   }else if(G.weapon==='pyro'){
-    // Final progression weapon. Neon plasma bolts that always splash on
-    // impact. L3 carries chain:1 — kills splashed by the blast spawn a
-    // smaller secondary pulse for crowd-clear chaos.
+    // Final progression weapon. Splash-focused plasma bombs — direct hit
+    // is modest, but the AOE is the real damage and matches direct dmg
+    // 1:1 so you watch fire spread across whatever the bolt touches.
+    // L3 chains: kills splashed by the blast spawn a smaller secondary
+    // pulse at that enemy's position (bounded recursion).
     const cdN=[.35,.30,.25][lv-1];
     const cdR=[.25,.20,.18][lv-1];
     cd=rapid?cdR:cdN;
     if(doom)cd*=.5;
     const baseDmg=2+lv;            // 3 / 4 / 5
-    const aoeR=50+lv*22;           // 72 / 94 / 116 px
-    const aoeDmg=Math.max(2,Math.floor(baseDmg*.7));  // 2 / 2 / 3
+    const aoeR=58+lv*24;           // 82 / 106 / 130 px (was 72 / 94 / 116)
+    const aoeDmg=baseDmg;          // splash = direct: AOE is the identity
     const chainLv=lv>=3?1:0;
     G.bullets.push({
-      x:p.x,y:p.y-22,vx:0,vy:-560,r:8,
+      x:p.x,y:p.y-22,vx:0,vy:-560,r:9,
       friend:true,dmg:baseDmg,trail:'#ff5a3a',life:1.8,
-      aoe:true,aoeR,aoeDmg,chainLv,aoeColor:'#ff5a3a'
+      aoe:true,aoeR,aoeDmg,chainLv,aoeColor:'#ff5a3a',pyro:true
     });
     G.shake=Math.max(G.shake,3);
     Audio.sPyro();
