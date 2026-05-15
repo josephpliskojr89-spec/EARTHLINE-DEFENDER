@@ -165,6 +165,15 @@
   #settingsPanel .toggleBtn.disabled{border-color:#4a3a5a;background:rgba(60,40,80,.3);color:#7a6a8a;cursor:default}
   #settingsPanel .closeBtn{margin-top:14px;width:100%;padding:11px;background:linear-gradient(135deg,var(--magenta),var(--purple));border:0;border-radius:10px;color:#fff;font-family:inherit;font-weight:900;font-size:13px;letter-spacing:.24em;cursor:pointer}
 
+  /* Dev Mode stage select overlay — same look as settings, deliberately
+     marked as a dev tool so it's obvious it isn't shipping UI. */
+  #devSelect{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:25;background:rgba(2,0,10,.85);padding:18px}
+  #devSelectPanel{width:min(380px,100%);background:#0a0014;border:2px solid var(--yellow);border-radius:14px;padding:18px 18px 14px;box-shadow:0 0 28px rgba(255,210,58,.45);color:#fff}
+  #devSelectPanel h3{margin:0 0 12px;text-align:center;font-size:14px;letter-spacing:.32em;color:var(--yellow);text-shadow:0 0 10px var(--yellow)}
+  #devStageList{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+  #devStageList button{appearance:none;border:1px solid var(--yellow);background:rgba(255,210,58,.08);color:#fff;padding:10px 12px;border-radius:8px;font-family:inherit;font-weight:900;font-size:12px;letter-spacing:.18em;text-align:left;cursor:pointer}
+  #devSelectPanel .closeBtn{margin-top:0;width:100%;padding:10px;background:#222;border:0;border-radius:10px;color:#9aa;font-family:inherit;font-weight:900;font-size:11px;letter-spacing:.24em;cursor:pointer}
+
   /* small toast */
   #toast{position:fixed;left:50%;top:24%;transform:translate(-50%,-50%);z-index:9;font-size:14px;color:#fff;text-shadow:0 0 10px var(--cyan),0 0 14px var(--magenta);letter-spacing:.22em;text-align:center;opacity:0;transition:opacity .2s;pointer-events:none}
   #toast.show{opacity:1}
@@ -227,6 +236,15 @@
       <button class="subBtn" id="endlessBtn">ENDLESS</button>
       <button class="subBtn locked" id="cynthiaBtn" disabled>CYNTHIA ?</button>
     </div>
+    <div class="subRow">
+      <button class="subBtn" id="titleSettingsBtn">SETTINGS</button>
+      <button class="subBtn" id="devToggleBtn" style="display:none">DEV MODE</button>
+    </div>
+    <div class="subRow" style="margin-top:6px;justify-content:center">
+      <label style="font-size:10px;letter-spacing:.2em;color:#7a6a8a;display:flex;gap:6px;align-items:center;cursor:pointer">
+        <input type="checkbox" id="devModeChk" style="accent-color:#ff2bd6"> DEV MODE
+      </label>
+    </div>
     <div class="credits">© EARTH SENTINEL COMMAND · v1.0</div>
   </div>
 </div>
@@ -271,6 +289,15 @@
       <button class="toggleBtn disabled" disabled>NORMAL</button>
     </div>
     <button class="closeBtn" id="settingsClose">CLOSE</button>
+  </div>
+</div>
+
+<!-- Dev Mode stage select overlay (only reachable when dev toggle is on) -->
+<div id="devSelect">
+  <div id="devSelectPanel">
+    <h3>DEV · STAGE SELECT</h3>
+    <div id="devStageList"></div>
+    <button class="closeBtn" id="devSelectClose">CANCEL</button>
   </div>
 </div>
 
@@ -494,7 +521,8 @@ const G={
   shieldActive:0, // seconds remaining when shield power-up is active
   doomCharge:0,   // 0-100, paused while doomActive>0
   doomActive:0,   // seconds remaining
-  doomIntro:0,    // 0..1s — wingmen slide-in + title flash phase
+  doomIntro:0,    // 0..3s — wingmen slide-in + title flash phase (freezes combat)
+  paused:false,   // settings menu opened mid-game (also freezes combat)
   yeetAvailable:true, // once-per-stage, refreshes on new stage, locked during boss
   invuln:0,       // post-hit invulnerability seconds
   weapon:'pew', weaponLv:1, weaponStep:0, // 0..11 — deterministic progression index
@@ -514,7 +542,7 @@ const G={
 // Cleared in order. After Stage 5's boss dies, the game completes.
 const STAGES=[
   {n:1, name:'STAGE 1 · FIRST CONTACT',
-   waveDur:28, rate:[.9,.45],
+   waveDur:28, rate:[.62,.3],
    enemies:['asteroid','comet','steroid'],
    boss:'squirt', bossDialog:'boss_squirt'},
   {n:2, name:'STAGE 2 · CABAL RISING',
@@ -904,6 +932,10 @@ function endBoss(){
 let dialogQueue=[],dialogIdx=0,onDialogDone=null,dialogTapCount=0;
 function showDialog(key,after){
   if(!DIALOG[key]){if(after)after();return}
+  // Re-entry guard: never restart a dialog sequence while one is already
+  // playing. Spam-tapping during a pre-boss dialog used to retrigger the
+  // same panels; this fixes that.
+  if(state===STATE.DIALOG){if(after)after();return}
   dialogQueue=DIALOG[key].slice();dialogIdx=0;dialogTapCount=0;onDialogDone=after||null;
   state=STATE.DIALOG;
   renderDialog();
@@ -963,7 +995,8 @@ function startStage(stageIdx){
   G.waveInStage=0;
   G.weaponDropsThisStage=0;
   G.killsThisStage=0;
-  G.yeetAvailable=true; // refresh once-per-stage nuke
+  G.yeetAvailable=true;     // refresh once-per-stage nuke
+  G._bossDialogShown=false; // reset per-encounter dialog gate
   yeetBtn.disabled=false;yeetBtn.classList.add('ready');
   // Non-blocking 3s announcement; gameplay begins immediately around it.
   announce(G.stageDef.name,3000);
@@ -986,7 +1019,11 @@ function startBossForStage(){
       yeetBtn.disabled=true;yeetBtn.classList.remove('ready');
     },1100);
   };
-  if(stageDef.bossDialog){
+  // Boss dialog plays exactly once per stage encounter. The flag is
+  // reset in startStage(), so re-entering a stage shows the dialog again,
+  // but spam-tapping the screen during the same encounter cannot.
+  if(stageDef.bossDialog && !G._bossDialogShown){
+    G._bossDialogShown=true;
     showDialog(stageDef.bossDialog,proceed);
   }else{
     proceed();
@@ -1030,17 +1067,25 @@ function advanceWaveOrBoss(){
 function update(dt){
   G.time+=dt;
   G.starOff+=dt*40; G.starOff2+=dt*16;
-  G.fireCd=Math.max(0,G.fireCd-dt);
-  G.rapid=Math.max(0,G.rapid-dt);
-  G.shieldActive=Math.max(0,G.shieldActive-dt);
-  G.shake=Math.max(0,G.shake-dt*22);
-  G.multiTimer=Math.max(0,G.multiTimer-dt);
-  G.invuln=Math.max(0,G.invuln-dt);
-  if(G.multiTimer<=0 && G.multi>1){G.multi=Math.max(1,G.multi-dt*.5)}
-  // Doom Squadron duration + activation intro
-  const wasActive=G.doomActive>0;
-  G.doomActive=Math.max(0,G.doomActive-dt);
+  // The Doom Squadron activation cinematic and the in-game pause menu
+  // both freeze combat. Tick the cinematic timer regardless so it can
+  // exit on its own; tick combat timers only when unfrozen.
   G.doomIntro=Math.max(0,G.doomIntro-dt);
+  const frozen=G.doomIntro>0 || G.paused;
+  if(!frozen){
+    G.fireCd=Math.max(0,G.fireCd-dt);
+    G.rapid=Math.max(0,G.rapid-dt);
+    G.shieldActive=Math.max(0,G.shieldActive-dt);
+    G.shake=Math.max(0,G.shake-dt*22);
+    G.multiTimer=Math.max(0,G.multiTimer-dt);
+    G.invuln=Math.max(0,G.invuln-dt);
+    if(G.multiTimer<=0 && G.multi>1){G.multi=Math.max(1,G.multi-dt*.5)}
+  }
+  // Doom Squadron duration ticks only after the intro flourish ends.
+  const wasActive=G.doomActive>0;
+  if(!frozen){
+    G.doomActive=Math.max(0,G.doomActive-dt);
+  }
   if(wasActive && G.doomActive<=0){
     doomBtn.classList.remove('active');
     Audio.endDoom();
@@ -1062,8 +1107,14 @@ function update(dt){
     doomCd.style.background=`conic-gradient(rgba(0,0,0,.55) ${(1-G.doomCharge/100)*360}deg,transparent 0)`;
   }
   const doomReady=G.doomCharge>=100 && G.doomActive<=0;
-  doomBtn.disabled=!doomReady;
+  doomBtn.disabled=!doomReady||frozen;
   if(doomReady){doomBtn.classList.add('ready')}else{doomBtn.classList.remove('ready')}
+
+  // ── Freeze gate: cinematic intro or pause menu — render only, no combat.
+  if(frozen){
+    hud();
+    return;
+  }
 
   // Player movement
   const p=G.player;if(!p)return;
@@ -1614,10 +1665,10 @@ function fireBombShot(p){
 }
 
 // Render Hank (left) + Tank (right) wingmen during Doom Squadron.
-// During the 1s activation intro (G.doomIntro > 0), they slide in from
-// off-screen left/right to their normal flank positions over the first
-// 0.6s, easing out. After the intro completes they hold the standard
-// offset and the co-fire logic in shoot() kicks in.
+// During the 3s cinematic intro (G.doomIntro > 0) they slide in from
+// off-screen left/right over the first 0.6s, then hold their final
+// flank positions for the remaining hold/fade beats. After the intro
+// completes the co-fire logic in shoot() kicks in.
 function drawWingmen(){
   if(G.doomActive<=0||!G.player)return;
   const p=G.player;
@@ -1625,7 +1676,7 @@ function drawWingmen(){
   const finalOffset=46;
   let slide=0;
   if(G.doomIntro>0){
-    const elapsed=1.0-G.doomIntro;        // 0..1 over the intro
+    const elapsed=3.0-G.doomIntro;        // 0..3 over the intro
     const slideT=Math.min(1,elapsed/0.6); // first 0.6s = the slide
     const eased=1-(1-slideT)*(1-slideT);  // ease-out
     slide=1-eased;                        // 1 → fully off-screen, 0 → in position
@@ -1636,22 +1687,26 @@ function drawWingmen(){
   drawWing(p.x+rOffset+Math.cos(t*4)*2, p.y+4+Math.cos(t*5)*1.5, ASSETS.ship_tank, '#22f0ff','#1a6080','T');
 }
 
-// Doom Squadron activation flourish — HANK / TANK side labels for the
-// first 0.6s, then the big "DOOM SQUADRON" arcade title card flashes
-// centered with a one-frame scale-punch and fades out by ~1.0s.
+// Doom Squadron activation flourish — 3-second cinematic. Timeline:
+//   0.0s  Hank/Tank slide in from edges
+//   0.5s  HANK / TANK side labels flash (magenta / cyan)
+//   1.2s  DOOM SQUADRON title card explodes onto center, scale-punch
+//   2.0s  hold full composition (ships in formation, text glowing)
+//   2.5s  text fade
+//   3.0s  done — gameplay resumes
 function drawDoomIntro(){
   if(G.doomIntro<=0)return;
-  const total=1.0;
+  const total=3.0;
   const elapsed=total-G.doomIntro;
   ctx.save();
-  // Phase 1: HANK (left, magenta) + TANK (right, cyan) — fade in then out
-  if(elapsed<0.6){
-    const t=elapsed/0.6;
-    const alpha=t<.25?(t/.25):t>.75?((1-t)/.25):1;
+  // Phase 1: HANK / TANK side labels (0.5s → 2.5s, fade in/hold/fade out)
+  if(elapsed>=0.5 && elapsed<2.5){
+    const t=(elapsed-0.5)/2.0;            // 0..1 over the labels' lifespan
+    const alpha=t<.18?(t/.18):t>.82?((1-t)/.18):1;
     ctx.globalAlpha=Math.max(0,Math.min(1,alpha));
-    ctx.font='900 28px Impact';
+    ctx.font='900 30px Impact';
     ctx.textBaseline='middle';
-    ctx.shadowBlur=18;
+    ctx.shadowBlur=20;
     ctx.fillStyle='#ff2bd6';ctx.shadowColor='#ff2bd6';
     ctx.textAlign='left';
     ctx.fillText('HANK',18,H*.42);
@@ -1659,13 +1714,13 @@ function drawDoomIntro(){
     ctx.textAlign='right';
     ctx.fillText('TANK',W-18,H*.42);
   }
-  // Phase 2: DOOM SQUADRON title card (0.6s → 1.0s)
-  if(elapsed>=0.6){
-    const t=(elapsed-0.6)/0.4; // 0..1 over the last 0.4s
+  // Phase 2: DOOM SQUADRON title card (1.2s → 3.0s)
+  if(elapsed>=1.2){
+    const t=(elapsed-1.2)/1.8;            // 0..1 over the title's lifespan
     let scale, alpha;
-    if(t<0.06){scale=1.35;alpha=1}             // one-frame punch
-    else if(t<0.75){scale=1.0;alpha=1}          // hold (~0.28s)
-    else{scale=1.0;alpha=Math.max(0,1-(t-0.75)/0.25)} // 0.1s fade
+    if(t<0.04){scale=1.35;alpha=1}        // one-frame scale punch
+    else if(t<0.72){scale=1.0;alpha=1}    // hold (~1.2s of full glow)
+    else{scale=1.0;alpha=Math.max(0,1-(t-0.72)/0.28)} // ~0.5s fade
     ctx.globalAlpha=alpha;
     ctx.translate(W/2,H*.34);
     ctx.scale(scale,scale);
@@ -1738,7 +1793,7 @@ function tryDoomSquadron(){
   if(G.doomCharge<100||G.doomActive>0)return;
   G.doomCharge=0;
   G.doomActive=30;
-  G.doomIntro=1.0; // 1s activation flourish: wingmen slide in, title flash
+  G.doomIntro=3.0; // 3s cinematic: gameplay freezes, wingmen slide-in, title flash, hold
   doomBtn.disabled=true;
   doomBtn.classList.remove('ready');
   doomBtn.classList.add('active');
@@ -2323,7 +2378,7 @@ function resetGame(){
   G.earth=100;G.time=0;G.spawnT=.5;G.fireCd=0;
   G.rapid=0;G.shieldActive=0;G.shake=0;G.invuln=0;
   G.bullets=[];G.enemies=[];G.parts=[];G.fxs=[];
-  G.doomCharge=0;G.doomActive=0;G.doomIntro=0;
+  G.doomCharge=0;G.doomActive=0;G.doomIntro=0;G.paused=false;
   G.yeetAvailable=true;
   yeetBtn.disabled=false;yeetBtn.classList.add('ready');
   doomBtn.disabled=true;doomBtn.classList.remove('ready');doomBtn.classList.remove('active');
@@ -2343,6 +2398,17 @@ function startCampaign(){
   resetGame();
   Audio.play('main');
   showDialog('intro',()=>{startStage(0)});
+  startLoop();
+}
+// Dev Mode entry: jump straight into a chosen stage. Skips the intro
+// dialog. resetGame() handles all per-stage state via startStage(idx).
+function startCampaignAtStage(stageIdx){
+  titleEl.style.display='none';
+  gameoverEl.style.display='none';
+  G.isEndless=false;G.character='moore';
+  resetGame();
+  Audio.play('main');
+  startStage(stageIdx);
   startLoop();
 }
 function startEndless(){
@@ -2456,12 +2522,63 @@ goRetry.onclick=()=>{
 yeetBtn.addEventListener('pointerdown',e=>{e.stopPropagation();planetaryYeet()});
 doomBtn.addEventListener('pointerdown',e=>{e.stopPropagation();tryDoomSquadron()});
 // Settings overlay: gear opens, close button or background-tap dismisses.
-function openSettings(){settingsEl.style.display='flex'}
-function closeSettings(){settingsEl.style.display='none'}
+// During active gameplay (PLAYING / BOSS) the panel doubles as a pause
+// menu — G.paused freezes combat via the same gate as the Doom intro.
+function openSettings(){
+  settingsEl.style.display='flex';
+  if(state===STATE.PLAYING||state===STATE.BOSS){G.paused=true}
+}
+function closeSettings(){
+  settingsEl.style.display='none';
+  G.paused=false;
+}
 settingsBtn.addEventListener('pointerdown',e=>{e.stopPropagation();openSettings()});
 settingsClose.addEventListener('pointerdown',e=>{e.stopPropagation();closeSettings()});
 settingsEl.addEventListener('pointerdown',e=>{if(e.target===settingsEl)closeSettings()});
 soundToggleBtn.addEventListener('pointerdown',e=>{e.stopPropagation();Audio.toggleMute()});
+
+// Title-screen SETTINGS button reuses the same overlay (no pause needed
+// since gameplay isn't running yet).
+const titleSettingsBtn=document.getElementById('titleSettingsBtn');
+titleSettingsBtn.addEventListener('pointerdown',e=>{e.stopPropagation();openSettings()});
+
+// ── Dev Mode (gated by checkbox; persists in localStorage) ──
+// When enabled, exposes a "DEV MODE" button on the title that opens a
+// stage-select overlay. Lets QA jump straight into any stage without
+// playing through earlier ones. Setting the checkbox to OFF removes the
+// button entirely, so it can be left in place and turned off for release.
+const devModeChk=document.getElementById('devModeChk');
+const devToggleBtn=document.getElementById('devToggleBtn');
+const devSelectEl=document.getElementById('devSelect');
+const devSelectClose=document.getElementById('devSelectClose');
+const devStageList=document.getElementById('devStageList');
+function refreshDevMode(){
+  const on=localStorage.getItem('ed_devmode')==='1';
+  devModeChk.checked=on;
+  devToggleBtn.style.display=on?'':'none';
+}
+devModeChk.addEventListener('change',()=>{
+  localStorage.setItem('ed_devmode',devModeChk.checked?'1':'0');
+  refreshDevMode();
+});
+function openDevSelect(){
+  devStageList.innerHTML='';
+  STAGES.forEach((st,i)=>{
+    const b=document.createElement('button');
+    b.textContent=(i+1)+' · '+st.name.replace(/^STAGE \d+\s*·\s*/i,'');
+    b.addEventListener('pointerdown',e=>{
+      e.stopPropagation();
+      devSelectEl.style.display='none';
+      startCampaignAtStage(i);
+    });
+    devStageList.appendChild(b);
+  });
+  devSelectEl.style.display='flex';
+}
+devToggleBtn.addEventListener('pointerdown',e=>{e.stopPropagation();openDevSelect()});
+devSelectClose.addEventListener('pointerdown',e=>{e.stopPropagation();devSelectEl.style.display='none'});
+devSelectEl.addEventListener('pointerdown',e=>{if(e.target===devSelectEl)devSelectEl.style.display='none'});
+refreshDevMode();
 
 // Visibility: pause audio when hidden
 document.addEventListener('visibilitychange',()=>{
