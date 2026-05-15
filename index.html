@@ -137,6 +137,25 @@
   @keyframes stIn{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
   @keyframes stFade{to{opacity:0;transform:scale(.96)}}
 
+  /* ============ Stage clear splash ============ */
+  #stageClear{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:14;background:radial-gradient(circle at 50% 45%,rgba(34,240,255,.18),rgba(2,0,10,.96) 70%);padding:18px;animation:scOverlayIn .4s ease-out}
+  @keyframes scOverlayIn{from{opacity:0}to{opacity:1}}
+  #stageClearPanel{width:min(440px,100%);text-align:center;padding:24px 22px;border:3px solid var(--cyan);border-radius:16px;background:linear-gradient(180deg,rgba(10,20,40,.96),rgba(20,0,40,.96));box-shadow:0 0 36px rgba(34,240,255,.55);animation:scPanelIn .55s cubic-bezier(.2,.9,.3,1.4)}
+  @keyframes scPanelIn{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
+  #stageClearPanel.final{border-color:var(--magenta);box-shadow:0 0 36px rgba(255,43,214,.65);background:linear-gradient(180deg,rgba(30,0,40,.96),rgba(20,0,30,.96))}
+  #stageClearPanel h2{margin:0 0 4px;font-size:clamp(32px,10vw,52px);line-height:1;letter-spacing:.06em;color:var(--cyan);text-shadow:0 0 16px var(--cyan),0 0 30px var(--cyan),0 4px 0 #000}
+  #stageClearPanel.final h2{color:var(--magenta);text-shadow:0 0 16px var(--magenta),0 0 32px var(--magenta),0 4px 0 #000}
+  #stageClearPanel .sub{font-size:12px;color:var(--green);letter-spacing:.3em;margin-bottom:18px;text-shadow:0 0 8px var(--green)}
+  #stageClearPanel.final .sub{color:var(--yellow);text-shadow:0 0 8px var(--yellow)}
+  #stageClearPanel .stat{display:flex;justify-content:space-between;padding:7px 4px;border-bottom:1px dashed rgba(255,255,255,.18);font-size:15px;color:#fff;font-weight:900}
+  #stageClearPanel .stat span:first-child{color:var(--cyan);letter-spacing:.2em;font-size:11px}
+  #stageClearPanel.final .stat span:first-child{color:var(--magenta-soft)}
+  #stageButtons{display:flex;gap:8px;margin-top:18px}
+  #stageButtons button,#finishBtn{flex:1;padding:14px 10px;border:0;border-radius:12px;color:#fff;font-family:inherit;font-weight:900;font-size:13px;letter-spacing:.18em;cursor:pointer;box-shadow:0 0 16px rgba(34,240,255,.35)}
+  #continueBtn{background:linear-gradient(135deg,var(--green),var(--cyan));color:#02000a;text-shadow:0 1px 0 rgba(255,255,255,.4)}
+  #saveQuitBtn{background:linear-gradient(135deg,var(--magenta),var(--purple));box-shadow:0 0 16px rgba(255,43,214,.45)}
+  #finishBtn{display:none;margin-top:18px;width:100%;background:linear-gradient(135deg,var(--magenta),var(--yellow));color:#02000a;text-shadow:0 1px 0 rgba(255,255,255,.4);box-shadow:0 0 24px rgba(255,210,58,.55);font-size:15px;letter-spacing:.28em}
+
   /* ============ Game over ============ */
   #gameover{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:11;background:rgba(2,0,10,.92);padding:18px}
   #goPanel{width:min(480px,100%);text-align:center;padding:22px;border:3px solid var(--magenta);border-radius:16px;background:linear-gradient(180deg,rgba(10,0,30,.95),rgba(20,0,40,.95));box-shadow:0 0 30px rgba(255,43,214,.6)}
@@ -232,6 +251,7 @@
     <div class="insertCoin">▶ INSERT COIN ◀</div>
     <div class="tagline">DEFEND EARTH. LOOK GOOD. DO IT AGAIN.</div>
     <button class="startBtn" id="startBtn">START CAMPAIGN</button>
+    <button class="subBtn" id="resumeBtn" style="display:none;width:min(420px,90%);margin-top:8px;border:2px solid var(--cyan);color:var(--cyan)">RESUME</button>
     <div class="subRow">
       <button class="subBtn" id="endlessBtn">ENDLESS</button>
       <button class="subBtn locked" id="cynthiaBtn" disabled>CYNTHIA ?</button>
@@ -262,6 +282,22 @@
 
 <!-- Stinger overlay (wave clear / boss incoming) -->
 <div id="stinger"><div class="stText" id="stingerText"></div></div>
+
+<!-- Stage clear splash (campaign only) -->
+<div id="stageClear">
+  <div id="stageClearPanel">
+    <h2 id="stageClearTitle">STAGE 1 CLEAR</h2>
+    <div class="sub" id="stageClearSub">SECTOR SECURED</div>
+    <div class="stat"><span>STAGE SCORE</span><span id="stageScoreEarned">0</span></div>
+    <div class="stat"><span>EARTH</span><span id="stageEarthRemaining">100%</span></div>
+    <div class="stat"><span>TOTAL</span><span id="stageScoreTotal">0</span></div>
+    <div id="stageButtons">
+      <button id="continueBtn">CONTINUE</button>
+      <button id="saveQuitBtn">SAVE AND QUIT</button>
+    </div>
+    <button id="finishBtn" style="display:none">FINISH</button>
+  </div>
+</div>
 
 <!-- Game over -->
 <div id="gameover">
@@ -814,7 +850,10 @@ function spawnMinionForBoss(boss){
 // Random drop pool: weapon upgrades are NOT in here — those are scheduled
 // deterministically (12 per stage) from killEnemy via forceWeaponDrop().
 function spawnPower(x,y,bias=0){
-  if(Math.random()>.14+bias)return;
+  // Slightly leaner default drop rate — power-ups feel earned rather
+  // than constant. Tough-enemy bias is preserved (blackfriday +.25,
+  // ufo +.15) so heavy kills still feel rewarded.
+  if(Math.random()>.10+bias)return;
   const kinds=['repair','rapid','shield'];
   const k=kinds[irand(0,kinds.length)];
   G.enemies.push({
@@ -995,6 +1034,7 @@ function startStage(stageIdx){
   G.waveInStage=0;
   G.weaponDropsThisStage=0;
   G.killsThisStage=0;
+  G.stageStartScore=Math.floor(G.score); // baseline for "score earned this stage"
   G.yeetAvailable=true;     // refresh once-per-stage nuke
   G._bossDialogShown=false; // reset per-encounter dialog gate
   yeetBtn.disabled=false;yeetBtn.classList.add('ready');
@@ -1030,28 +1070,96 @@ function startBossForStage(){
   }
 }
 
+// Campaign save/load. ed_save stores the next-stage index (0-based) plus
+// carry-over score and weapon-progression step so a resume picks up
+// exactly where the player saved.
+function saveProgress(nextStageIdx){
+  const data={
+    stage:nextStageIdx,
+    score:Math.floor(G.score),
+    weaponStep:G.weaponStep|0
+  };
+  try{localStorage.setItem('ed_save',JSON.stringify(data))}catch(e){}
+  refreshResumeBtn();
+}
+function loadProgress(){
+  try{const raw=localStorage.getItem('ed_save');if(!raw)return null;return JSON.parse(raw)}
+  catch(e){return null}
+}
+function clearProgress(){
+  try{localStorage.removeItem('ed_save')}catch(e){}
+  refreshResumeBtn();
+}
+
 function onBossDefeated(){
-  // Boss is gone (endBoss already cleaned up state). Show stage clear.
+  // Boss is gone (endBoss already cleaned up state).
   const wasFinal=G.stageDef && G.stageDef.final;
-  if(wasFinal){
-    // Campaign complete!
-    campaignDone=true;localStorage.setItem('ed_campaign','1');
-    cynthiaUnlocked=true;
-    stinger('EARTH SAVED',()=>{
-      showDialog('victory',()=>{victoryScreen()});
-    },1600);
-    return;
-  }
-  stinger('STAGE CLEAR',()=>{
-    if(G.stage>=STAGES.length){
-      // safety: somehow past final stage without final flag
+  // Endless mode keeps the quick-stinger flow — the splash is a
+  // campaign-progression feature with no analog in endless.
+  if(G.isEndless){
+    if(wasFinal){
       campaignDone=true;localStorage.setItem('ed_campaign','1');
       cynthiaUnlocked=true;
-      showDialog('victory',()=>{victoryScreen()});
-      return;
+      stinger('EARTH SAVED',()=>{showDialog('victory',()=>{victoryScreen()})},1600);
+    }else{
+      stinger('STAGE CLEAR',()=>{
+        if(G.stage>=STAGES.length){
+          campaignDone=true;localStorage.setItem('ed_campaign','1');
+          cynthiaUnlocked=true;
+          showDialog('victory',()=>{victoryScreen()});
+        }else{startStage(G.stage)}
+      },1600);
     }
-    startStage(G.stage); // current stage was G.stage; next index is G.stage (0-based -> stage)
-  },1600);
+    return;
+  }
+  // Campaign path → show the stage-clear splash, then act on the player's
+  // chosen button (CONTINUE / SAVE AND QUIT / FINISH).
+  showStageClearSplash(!!wasFinal);
+}
+
+// Stage clear splash. Composes per-stage stats, autosaves, and presents
+// CONTINUE / SAVE AND QUIT (or FINISH on the final stage).
+function showStageClearSplash(isFinal){
+  const earned=Math.max(0,Math.floor(G.score)-(G.stageStartScore|0));
+  const total=Math.floor(G.score);
+  const earthPct=Math.max(0,Math.ceil(G.earth));
+  const panel=document.getElementById('stageClearPanel');
+  const title=document.getElementById('stageClearTitle');
+  const sub=document.getElementById('stageClearSub');
+  const buttons=document.getElementById('stageButtons');
+  const finishBtnEl=document.getElementById('finishBtn');
+  document.getElementById('stageScoreEarned').textContent=earned.toLocaleString();
+  document.getElementById('stageEarthRemaining').textContent=earthPct+'%';
+  document.getElementById('stageScoreTotal').textContent=total.toLocaleString();
+  if(isFinal){
+    panel.classList.add('final');
+    title.textContent='EARTH SAVED';
+    sub.textContent='CAMPAIGN COMPLETE';
+    buttons.style.display='none';
+    finishBtnEl.style.display='block';
+    // Final clear wipes the save so a future RESUME doesn't dump them
+    // back into an already-finished campaign.
+    campaignDone=true;localStorage.setItem('ed_campaign','1');
+    cynthiaUnlocked=true;
+    clearProgress();
+  }else{
+    panel.classList.remove('final');
+    title.textContent='STAGE '+G.stage+' CLEAR';
+    sub.textContent='SECTOR SECURED';
+    buttons.style.display='flex';
+    finishBtnEl.style.display='none';
+    // Autosave on every stage clear — SAVE AND QUIT just returns to the
+    // title; the data is already written.
+    saveProgress(G.stage); // G.stage = the stage just cleared; resume here = next
+  }
+  // Freeze combat while the splash is up so any lingering minions can't
+  // march onto Earth between boss death and the player's choice.
+  G.paused=true;
+  document.getElementById('stageClear').style.display='flex';
+}
+function hideStageClearSplash(){
+  document.getElementById('stageClear').style.display='none';
+  G.paused=false;
 }
 
 // After a non-boss wave timer ends: advance through 5 waves, then boss.
@@ -1483,7 +1591,11 @@ function killEnemy(e,i){
     G.doomCharge=Math.min(100,G.doomCharge+(tough?1.8:1.1));
   }
   // Weapon drop scheduler — exactly 12 per stage, distributed across kills
-  const dropEvery=8; // kills per scheduled drop (covers 96 kills for 12 drops)
+  // Space the 12 weapon drops across the whole stage rather than front-
+  // loading them. At ~14 kills/drop the 12th drop arrives near the end
+  // of a normal stage instead of mid-wave-3, so the ladder feels earned
+  // and the back half of the stage isn't dry.
+  const dropEvery=14;
   if(G.weaponDropsThisStage<12 && G.killsThisStage>=dropEvery*(G.weaponDropsThisStage+1)){
     G.weaponDropsThisStage++;
     forceWeaponDrop(e.x,e.y);
@@ -2518,7 +2630,71 @@ goRetry.onclick=()=>{
   gameoverEl.style.display='none';
   titleEl.style.display='flex';
   state=STATE.TITLE;
+  refreshResumeBtn();
 };
+
+// Stage clear splash buttons.
+const stageClearEl=document.getElementById('stageClear');
+const continueBtn=document.getElementById('continueBtn');
+const saveQuitBtn=document.getElementById('saveQuitBtn');
+const finishBtn=document.getElementById('finishBtn');
+continueBtn.addEventListener('pointerdown',e=>{
+  e.stopPropagation();
+  hideStageClearSplash();
+  // G.stage was the cleared stage's number; index of next stage = G.stage.
+  if(G.stage>=STAGES.length){
+    // Defensive: shouldn't happen for non-final since onBossDefeated routes
+    // wasFinal through finishBtn instead. Treat as campaign complete.
+    campaignDone=true;localStorage.setItem('ed_campaign','1');cynthiaUnlocked=true;
+    clearProgress();
+    showDialog('victory',()=>{victoryScreen()});
+    return;
+  }
+  startStage(G.stage);
+});
+saveQuitBtn.addEventListener('pointerdown',e=>{
+  e.stopPropagation();
+  // Save is already on disk (autosave fired in showStageClearSplash).
+  hideStageClearSplash();
+  Audio.stop();
+  state=STATE.TITLE;
+  titleEl.style.display='flex';
+  refreshResumeBtn();
+});
+finishBtn.addEventListener('pointerdown',e=>{
+  e.stopPropagation();
+  // Final stage → roll into the existing victory dialog + screen.
+  hideStageClearSplash();
+  showDialog('victory',()=>{victoryScreen()});
+});
+
+// Resume button: only visible on the title when a campaign save exists.
+const resumeBtn=document.getElementById('resumeBtn');
+function refreshResumeBtn(){
+  const save=loadProgress();
+  if(save && typeof save.stage==='number' && save.stage>=0 && save.stage<STAGES.length){
+    resumeBtn.style.display='block';
+    resumeBtn.textContent='RESUME · STAGE '+(save.stage+1);
+  }else{
+    resumeBtn.style.display='none';
+  }
+}
+resumeBtn.addEventListener('pointerdown',e=>{
+  e.stopPropagation();
+  const save=loadProgress();if(!save)return;
+  titleEl.style.display='none';
+  gameoverEl.style.display='none';
+  G.isEndless=false;G.character='moore';
+  resetGame();
+  // Carry score and weapon progression forward so resume isn't a hard reset.
+  G.score=save.score|0;
+  G.weaponStep=Math.max(0,Math.min(WEAPON_SEQUENCE.length-1,save.weaponStep|0));
+  applyWeaponStep(G.weaponStep);
+  Audio.play('main');
+  startStage(save.stage);
+  startLoop();
+});
+refreshResumeBtn();
 yeetBtn.addEventListener('pointerdown',e=>{e.stopPropagation();planetaryYeet()});
 doomBtn.addEventListener('pointerdown',e=>{e.stopPropagation();tryDoomSquadron()});
 // Settings overlay: gear opens, close button or background-tap dismisses.

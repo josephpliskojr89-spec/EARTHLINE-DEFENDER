@@ -1,6 +1,6 @@
 /* Earthline Defender — service worker
    Cache-first offline shell for the single-file game. */
-const CACHE='earthline-v18';
+const CACHE='earthline-v19';
 const ASSETS=[
   './',
   './index.html',
