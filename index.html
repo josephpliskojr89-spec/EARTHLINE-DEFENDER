@@ -189,6 +189,10 @@
   #devSelect{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:25;background:rgba(2,0,10,.85);padding:18px}
   #devSelectPanel{width:min(380px,100%);background:#0a0014;border:2px solid var(--yellow);border-radius:14px;padding:18px 18px 14px;box-shadow:0 0 28px rgba(255,210,58,.45);color:#fff}
   #devSelectPanel h3{margin:0 0 12px;text-align:center;font-size:14px;letter-spacing:.32em;color:var(--yellow);text-shadow:0 0 10px var(--yellow)}
+  #devSelectPanel .devRow{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  #devSelectPanel .devRow label{font-size:11px;letter-spacing:.22em;color:var(--yellow);flex:0 0 auto}
+  #devSelectPanel .devRow select{flex:1;appearance:none;-webkit-appearance:none;background:#1a0014;color:#fff;border:1px solid var(--yellow);border-radius:8px;padding:8px 10px;font-family:inherit;font-weight:900;font-size:12px;letter-spacing:.12em;cursor:pointer}
+  #devSelectPanel .devHint{font-size:10px;letter-spacing:.1em;color:#7a6a8a;margin:0 0 12px;text-align:center;line-height:1.4}
   #devStageList{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
   #devStageList button{appearance:none;border:1px solid var(--yellow);background:rgba(255,210,58,.08);color:#fff;padding:10px 12px;border-radius:8px;font-family:inherit;font-weight:900;font-size:12px;letter-spacing:.18em;text-align:left;cursor:pointer}
   #devSelectPanel .closeBtn{margin-top:0;width:100%;padding:10px;background:#222;border:0;border-radius:10px;color:#9aa;font-family:inherit;font-weight:900;font-size:11px;letter-spacing:.24em;cursor:pointer}
@@ -332,6 +336,11 @@
 <div id="devSelect">
   <div id="devSelectPanel">
     <h3>DEV · STAGE SELECT</h3>
+    <div class="devRow">
+      <label for="devWeaponSelect">WEAPON</label>
+      <select id="devWeaponSelect"></select>
+    </div>
+    <div class="devHint">Locked weapon stays at the chosen level for the whole test session — no upgrades or drops.</div>
     <div id="devStageList"></div>
     <button class="closeBtn" id="devSelectClose">CANCEL</button>
   </div>
@@ -563,6 +572,7 @@ const G={
   invuln:0,       // post-hit invulnerability seconds
   weapon:'pew', weaponLv:1, weaponStep:0, // 0..11 — deterministic progression index
   bombShots:0, // Earthquake Bomb temporary shots remaining (rare pickup)
+  devLockedWeapon:false, // Dev Mode weapon-lock: blocks drops + upgrades
   boss:null, bossPhase:1,
   // Stage / wave tracking
   stage:1, stageDef:null,
@@ -920,7 +930,13 @@ function collectPower(k){
     Audio.sExplode();
   }
   else if(k==='weapon'){
-    if(G.weaponStep>=WEAPON_SEQUENCE.length-1){
+    if(G.devLockedWeapon){
+      // Dev Mode weapon lock — pickup ignored entirely. Small score
+      // crumb so it doesn't feel like the orb did nothing, but the
+      // weapon/level never moves.
+      G.score+=100;
+      toastMsg('LOCKED · WEAPON UNCHANGED');
+    }else if(G.weaponStep>=WEAPON_SEQUENCE.length-1){
       // Already at max — extra pickups award bonus score instead of cycling
       const bonus=Math.floor(500*G.multi);
       G.score+=bonus;
@@ -1150,7 +1166,11 @@ function showStageClearSplash(isFinal){
     finishBtnEl.style.display='none';
     // Autosave on every stage clear — SAVE AND QUIT just returns to the
     // title; the data is already written.
-    saveProgress(G.stage); // G.stage = the stage just cleared; resume here = next
+    // Dev Mode sessions never write to the save slot — keeps test runs
+    // from leaking a locked weapon into a future Resume on the title.
+    if(!G.devLockedWeapon){
+      saveProgress(G.stage); // G.stage = the stage just cleared; resume here = next
+    }
   }
   // Freeze combat while the splash is up so any lingering minions can't
   // march onto Earth between boss death and the player's choice.
@@ -1596,7 +1616,9 @@ function killEnemy(e,i){
   // of a normal stage instead of mid-wave-3, so the ladder feels earned
   // and the back half of the stage isn't dry.
   const dropEvery=14;
-  if(G.weaponDropsThisStage<12 && G.killsThisStage>=dropEvery*(G.weaponDropsThisStage+1)){
+  // Dev Mode weapon-lock: skip the scheduler entirely so no upgrade orbs
+  // spawn while testing a single weapon.
+  if(!G.devLockedWeapon && G.weaponDropsThisStage<12 && G.killsThisStage>=dropEvery*(G.weaponDropsThisStage+1)){
     G.weaponDropsThisStage++;
     forceWeaponDrop(e.x,e.y);
   }
@@ -1937,14 +1959,17 @@ function hud(){
   if(waveNumEl.textContent!==wantWave)waveNumEl.textContent=wantWave;
   waveNumEl.classList.toggle('boss',!!G.boss);
   // Weapon indicator: bomb counter while shots remain, otherwise the
-  // equipped progression weapon. Skip the DOM write if text is unchanged.
+  // equipped progression weapon. Dev Mode weapon-lock appends a "DEV
+  // LOCK" badge so the tester can never lose track of why no upgrade
+  // drops are appearing. Skip the DOM write if text is unchanged.
   let want, wantColor;
   if(G.bombShots>0){
     want='⚠ EARTHQUAKE BOMB · '+G.bombShots+'/5';
     wantColor='#ff7a3a';
   }else{
     want=WEAPON_NAMES[G.weapon]+(G.weaponLv>1?' LV'+G.weaponLv:'');
-    wantColor='';
+    if(G.devLockedWeapon)want+=' · DEV LOCK';
+    wantColor=G.devLockedWeapon?'#ffd23a':'';
   }
   if(weaponInd.textContent!==want)weaponInd.textContent=want;
   if(weaponInd.style.color!==wantColor)weaponInd.style.color=wantColor;
@@ -2494,7 +2519,7 @@ function resetGame(){
   G.yeetAvailable=true;
   yeetBtn.disabled=false;yeetBtn.classList.add('ready');
   doomBtn.disabled=true;doomBtn.classList.remove('ready');doomBtn.classList.remove('active');
-  G.weapon='pew';G.weaponLv=1;G.weaponStep=0;G.bombShots=0;
+  G.weapon='pew';G.weaponLv=1;G.weaponStep=0;G.bombShots=0;G.devLockedWeapon=false;
   G.stage=1;G.stageDef=null;G.waveInStage=0;
   G.weaponDropsThisStage=0;G.killsThisStage=0;
   G.boss=null;bossBarWrap.style.display='none';
@@ -2513,12 +2538,19 @@ function startCampaign(){
   startLoop();
 }
 // Dev Mode entry: jump straight into a chosen stage. Skips the intro
-// dialog. resetGame() handles all per-stage state via startStage(idx).
-function startCampaignAtStage(stageIdx){
+// dialog. If lockedStep is a number (0..11 — index into WEAPON_SEQUENCE)
+// the weapon is forced to that step and held there for the entire test
+// session: no upgrade drops are spawned and any pickup is ignored.
+function startCampaignAtStage(stageIdx,lockedStep){
   titleEl.style.display='none';
   gameoverEl.style.display='none';
   G.isEndless=false;G.character='moore';
   resetGame();
+  if(typeof lockedStep==='number' && lockedStep>=0 && lockedStep<WEAPON_SEQUENCE.length){
+    G.weaponStep=lockedStep;
+    applyWeaponStep(lockedStep);
+    G.devLockedWeapon=true;
+  }
   Audio.play('main');
   startStage(stageIdx);
   startLoop();
@@ -2728,6 +2760,7 @@ const devToggleBtn=document.getElementById('devToggleBtn');
 const devSelectEl=document.getElementById('devSelect');
 const devSelectClose=document.getElementById('devSelectClose');
 const devStageList=document.getElementById('devStageList');
+const devWeaponSelect=document.getElementById('devWeaponSelect');
 function refreshDevMode(){
   const on=localStorage.getItem('ed_devmode')==='1';
   devModeChk.checked=on;
@@ -2737,6 +2770,21 @@ devModeChk.addEventListener('change',()=>{
   localStorage.setItem('ed_devmode',devModeChk.checked?'1':'0');
   refreshDevMode();
 });
+// Populate the dev weapon picker once. First option is the normal
+// progression (no lock); the rest are every weapon × level combo from
+// WEAPON_SEQUENCE. Selecting any of those locks the weapon for the
+// session — see startCampaignAtStage(idx, lockedStep).
+(function buildDevWeaponOptions(){
+  const blank=document.createElement('option');
+  blank.value='';blank.textContent='— normal progression —';
+  devWeaponSelect.appendChild(blank);
+  WEAPON_SEQUENCE.forEach(([w,lv],i)=>{
+    const o=document.createElement('option');
+    o.value=String(i);
+    o.textContent=WEAPON_NAMES[w]+' L'+lv;
+    devWeaponSelect.appendChild(o);
+  });
+})();
 function openDevSelect(){
   devStageList.innerHTML='';
   STAGES.forEach((st,i)=>{
@@ -2745,7 +2793,11 @@ function openDevSelect(){
     b.addEventListener('pointerdown',e=>{
       e.stopPropagation();
       devSelectEl.style.display='none';
-      startCampaignAtStage(i);
+      const rawStep=devWeaponSelect.value;
+      // Empty value → no lock, normal progression. Otherwise lock the
+      // weapon at the picked WEAPON_SEQUENCE step for this session.
+      const lockedStep=(rawStep==='')?null:parseInt(rawStep,10);
+      startCampaignAtStage(i,lockedStep);
     });
     devStageList.appendChild(b);
   });
